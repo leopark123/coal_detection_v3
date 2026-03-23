@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试/覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+pytest-cache-files-*/
+
+# 日志（保留目录结构，排除内容）
+logs/images/
+logs/*.log
+runtime_*.log
+uvicorn_*.log
+
+# Office 临时文件
+~$*
+
+# Windows 杂项
+nul
+Thumbs.db
+Desktop.ini
+
+# 打包产物
+GridEditorToolKit_v1.0.0_*.zip
+GridEditorToolKit_v1.0.0_*/
+
+# pytest 临时缓存
+pytest-cache-files-*/
+
+# 运行时日志（根目录）
+runtime_*.log
+uvicorn_*.log
+
+# Claude Code
+.claude/
+
+# 临时文件
+.tmp_*
+*.tmp

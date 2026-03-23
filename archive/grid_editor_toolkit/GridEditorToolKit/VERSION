@@ -1,0 +1,14 @@
+Grid Editor Toolkit v1.0.0
+Build Date: 2026-01-18
+Python: 3.7+
+Platform: Cross-platform (Windows/Linux/macOS)
+
+Features:
+- Precise grid calibration with drag-and-drop interface
+- Support for arbitrary grid dimensions
+- JSON configuration save/load
+- Cross-platform compatibility
+- Standalone package, no complex dependencies
+
+Author: Grid Editor Toolkit Team
+License: MIT

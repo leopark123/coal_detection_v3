@@ -1,0 +1,80 @@
+# 翻车机积煤检测系统 V3.0 - 生产环境配置
+# 用于现场部署、真实硬件
+# 使用方法：python main.py --config config/config_prod.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# 核心开关
+# ═══════════════════════════════════════════════════════════════
+DEV_MODE: false
+
+# ═══════════════════════════════════════════════════════════════
+# 硬件参数（生产环境 - 全分辨率）
+# ═══════════════════════════════════════════════════════════════
+FRAME_WIDTH: 3072  # Basler GigE 相机
+FRAME_HEIGHT: 2048
+CHANNELS: 3
+TARGET_FPS: 10.0
+
+# 相机配置（Basler GigE，pypylon SDK）
+CAMERA_TYPE: "basler"
+CAMERA_IP: "192.168.1.100"  # 修改为实际相机IP
+CAMERA_TIMEOUT_MS: 5000
+
+# PLC 配置（CompactLogix 1769-L16ER，Ethernet/IP）
+PLC_IP: "192.168.1.200"  # 修改为实际PLC IP
+PLC_HEARTBEAT_INTERVAL_MS: 500
+PLC_TIMEOUT_MS: 3000
+
+# ═══════════════════════════════════════════════════════════════
+# 开发环境覆盖（生产模式下不使用）
+# ═══════════════════════════════════════════════════════════════
+DEV_FRAME_WIDTH: 1024
+DEV_FRAME_HEIGHT: 768
+DEV_FPS: 1.0
+
+# 模拟数据（生产模式下不使用）
+MOCK_SOURCE_DIR: "tests/mock_data"
+MOCK_CAMERA_FAIL_RATE: 0.0
+MOCK_PLC_DELAY_MAX: 0.0
+MOCK_ENABLE_FAULT_INJECTION: false
+
+# ═══════════════════════════════════════════════════════════════
+# 算法参数（生产优化）
+# ═══════════════════════════════════════════════════════════════
+# ECC 配准（生产模式启用）
+USE_ECC: true
+ECC_PROCESS_WIDTH: 320  # 降采样尺寸（性能优化）
+ECC_PROCESS_HEIGHT: 240
+ECC_MAX_ITERATIONS: 5
+ECC_EPSILON: 0.01
+
+# CLAHE 增强（生产参数）
+CLAHE_CLIP_LIMIT: 3.0
+CLAHE_TILE_SIZE: 8
+
+# 检测阈值（严格参数，减少误报）
+GRID_VISIBLE_THRESHOLD: 0.85
+COAL_COVERAGE_THRESHOLD: 0.05
+
+# 多帧投票（稳定性优先）
+VOTE_WINDOW_SIZE: 5
+VOTE_THRESHOLD: 3
+
+# ═══════════════════════════════════════════════════════════════
+# GPU 加速（生产环境启用）
+# ═══════════════════════════════════════════════════════════════
+USE_CUDA: true  # 如果有CUDA环境，建议启用
+
+# ═══════════════════════════════════════════════════════════════
+# 日志与存图
+# ═══════════════════════════════════════════════════════════════
+LOG_LEVEL: "INFO"
+SAVE_ALARM_IMAGES: true
+SAVE_INTERVAL_FRAMES: 100
+IMAGE_SAVE_DIR: "logs/images"
+
+# ═══════════════════════════════════════════════════════════════
+# 路径
+# ═══════════════════════════════════════════════════════════════
+REFERENCE_IMAGE_PATH: "config/reference.jpg"
+GRID_BASELINE_PATH: "config/grid_baseline.yaml"

@@ -1,0 +1,59 @@
+{
+  "source_image": "tests/mock_data/clean/step_02_enhanced.jpg",
+  "calibration_method": "manual_annotation_extracted",
+  "mask_polygon": [
+    [
+      0,
+      0
+    ],
+    [
+      459,
+      0
+    ],
+    [
+      459,
+      600
+    ],
+    [
+      0,
+      600
+    ]
+  ],
+  "logic_shape": [
+    1,
+    1
+  ],
+  "total_theoretical": 1,
+  "valid_cells": [
+    {
+      "id": 0,
+      "row": 0,
+      "col": 0,
+      "points": [
+        [
+          29,
+          52
+        ],
+        [
+          459,
+          52
+        ],
+        [
+          459,
+          592
+        ],
+        [
+          29,
+          592
+        ]
+      ],
+      "area": 197938.5
+    }
+  ],
+  "valid_count": 1,
+  "extraction_info": {
+    "total_boxes_found": 1,
+    "estimated_grid": "1x1",
+    "coverage_ratio": 1.0
+  }
+}
