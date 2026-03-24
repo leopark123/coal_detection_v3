@@ -8,22 +8,17 @@
 4. 断线重连机制
 
 目标 PLC 型号：
-- CompactLogix 1769-L16ER（Ethernet/IP）
-
-兼容型号：
-- CompactLogix 5370/5380 系列
-- ControlLogix 5570/5580 系列
+- CompactLogix 1769-L16ER/B B1B（Ethernet/IP, 192.168.1.19）
 
 依赖：
 - pycomm3: pip install pycomm3
 
-点位表：
-- Detection.CoalPresent: BOOL - 积煤检测结果
-- Detection.Confidence: STRING - 置信度等级
-- Detection.NeedManualConfirm: BOOL - 需人工确认
-- Detection.VisionHeartbeat: INT - 心跳递增值
-- Detection.FaultCode: INT - 故障码
-- Detection.SystemReady: BOOL - 系统就绪
+点位表（5 个标签，最小化通信量）：
+- Vision_CanTip:      BOOL - 可翻转（无积煤=True, 有积煤=False）
+- Vision_FaultCode:   DINT - 故障码（0=正常, 1=相机故障, 2=PLC通信, 3=画质问题, 4=低置信度需人工）
+- Vision_ResultValid: BOOL - 结果可信（高/中置信度=True, 低置信度=False）
+- IPC_Heartbeat:      DINT - 心跳递增值（500ms 周期）
+- IPC_Online:         BOOL - 视觉系统在线
 """
 
 import time
@@ -99,8 +94,8 @@ class AllenBradleyPLC:
                 self.connection_start_time = time.time()
                 logger.info(f"[AllenBradleyPLC] 连接成功")
 
-                # 写入系统就绪信号
-                self.write("Detection.SystemReady", True)
+                # 写入系统在线信号
+                self.write("IPC_Online", True)
 
                 return True
             else:
@@ -149,14 +144,14 @@ class AllenBradleyPLC:
                 self.write_count += 1
 
                 # 记录重要信号变化
-                if "Coal" in tag or "Alarm" in tag:
-                    logger.info(f"[AllenBradleyPLC] 📡 {tag} = {value}")
-                elif "Heartbeat" in tag:
+                if tag == "Vision_CanTip":
+                    logger.info(f"[AllenBradleyPLC] {tag} = {value}")
+                elif tag == "IPC_Heartbeat":
                     self.heartbeat_count += 1
                     if self.heartbeat_count % 20 == 0:
-                        logger.debug(f"[AllenBradleyPLC] 💓 心跳 #{value}")
-                elif "Fault" in tag and value != 0:
-                    logger.warning(f"[AllenBradleyPLC] ⚠️ 故障码: {tag} = {value}")
+                        logger.debug(f"[AllenBradleyPLC] 心跳 #{value}")
+                elif tag == "Vision_FaultCode" and value != 0:
+                    logger.warning(f"[AllenBradleyPLC] 故障码: {value}")
 
                 return True
 
@@ -245,13 +240,13 @@ class AllenBradleyPLC:
             return False
 
     def update_heartbeat(self):
-        """更新心跳信号"""
+        """更新心跳信号（500ms 周期）"""
         current_time = time.time()
 
         # 检查心跳间隔
         if (current_time - self.last_heartbeat_time) * 1000 >= self.heartbeat_interval:
-            self.heartbeat_value = (self.heartbeat_value + 1) % 65536  # 16位无符号整数
-            success = self.write("Detection.VisionHeartbeat", self.heartbeat_value)
+            self.heartbeat_value = (self.heartbeat_value + 1) % 65536
+            success = self.write("IPC_Heartbeat", self.heartbeat_value)
 
             if success:
                 self.last_heartbeat_time = current_time
@@ -263,7 +258,7 @@ class AllenBradleyPLC:
     def send_detection_result(self, coal_present: bool, confidence: str,
                             need_manual: bool, fault_code: int = 0):
         """
-        发送检测结果到 PLC
+        发送检测结果到 PLC（5 个标签，一次批量写入）
 
         Args:
             coal_present: 是否检测到积煤
@@ -271,11 +266,15 @@ class AllenBradleyPLC:
             need_manual: 是否需要人工确认
             fault_code: 故障码
         """
+        # 可翻转 = 无积煤且不需人工确认（安全连锁核心信号）
+        can_tip = (not coal_present) and (not need_manual)
+        # 结果可信 = 高或中置信度
+        result_valid = confidence in ("HIGH", "MEDIUM")
+
         tag_values = {
-            "Detection.CoalPresent": coal_present,
-            "Detection.Confidence": confidence,
-            "Detection.NeedManualConfirm": need_manual,
-            "Detection.FaultCode": fault_code,
+            "Vision_CanTip": can_tip,
+            "Vision_FaultCode": fault_code,
+            "Vision_ResultValid": result_valid,
         }
 
         # 先更新心跳
@@ -285,7 +284,7 @@ class AllenBradleyPLC:
         success = self.batch_write(tag_values)
 
         if success:
-            logger.info(f"[AllenBradleyPLC] 检测结果已发送 - 积煤:{coal_present}, 置信度:{confidence}")
+            logger.info(f"[AllenBradleyPLC] 检测结果已发送 - 可翻转:{can_tip}, 故障码:{fault_code}")
         else:
             logger.error("[AllenBradleyPLC] 检测结果发送失败")
 
@@ -300,8 +299,8 @@ class AllenBradleyPLC:
             return False
 
         try:
-            # 尝试读取一个系统标签来验证连接
-            result = self.plc.read("Detection.VisionHeartbeat")
+            # 尝试读取心跳标签来验证连接
+            result = self.plc.read("IPC_Heartbeat")
 
             if result.error:
                 logger.warning(f"[AllenBradleyPLC] 连接检查失败: {result.error}")
@@ -337,8 +336,8 @@ class AllenBradleyPLC:
         """关闭 PLC 连接"""
         try:
             if self.plc and self.is_connected:
-                # 发送系统关闭信号
-                self.write("Detection.SystemReady", False)
+                # 发送系统离线信号
+                self.write("IPC_Online", False)
 
                 # 关闭连接
                 self.plc.close()
@@ -390,41 +389,32 @@ def test_allen_bradley():
     """测试 Allen Bradley PLC 通信"""
     from config.config import Config
 
-    # 创建配置
     config = Config()
     config.DEV_MODE = False
-    config.PLC_IP = "192.168.1.200"  # 修改为实际 PLC IP
 
     try:
-        # 创建 PLC 实例
         plc = AllenBradleyPLC(config)
 
         if plc.is_connected:
             print("PLC 连接成功！")
 
-            # 测试写入
-            plc.write("Detection.SystemReady", True)
-            plc.write("Detection.CoalPresent", False)
-            plc.write("Detection.Confidence", "HIGH")
-
             # 测试心跳
-            for i in range(10):
+            for i in range(5):
                 plc.update_heartbeat()
                 time.sleep(0.5)
 
             # 测试检测结果发送
             plc.send_detection_result(
-                coal_present=True,
-                confidence="MEDIUM",
+                coal_present=False,
+                confidence="HIGH",
                 need_manual=False,
                 fault_code=0
             )
 
             # 测试读取
-            heartbeat = plc.read("Detection.VisionHeartbeat")
+            heartbeat = plc.read("IPC_Heartbeat")
             print(f"心跳值: {heartbeat}")
 
-            # 打印 PLC 信息
             info = plc.get_plc_info()
             print("PLC 信息:", info)
 

@@ -70,20 +70,21 @@ class Config:
     DEV_MODE: bool = field(default_factory=_get_dev_mode_from_env)
     
     # ═══════════════════════════════════════════════════════════════
-    # 硬件参数（生产环境）
+    # 硬件参数（生产环境 - Basler acA1600-660gm）
     # ═══════════════════════════════════════════════════════════════
-    FRAME_WIDTH: int = 3072          # 海康 600W 相机
-    FRAME_HEIGHT: int = 2048
-    CHANNELS: int = 3
-    TARGET_FPS: float = 10.0
-    
-    # 相机配置（Basler GigE）
+    FRAME_WIDTH: int = 1600          # Basler acA1600-60gm (Mono8 灰度，驱动层转BGR)
+    FRAME_HEIGHT: int = 1200
+    CHANNELS: int = 3                # 驱动层 Mono8→BGR 转换，流水线统一 3 通道
+    TARGET_FPS: float = 5.5          # GigE 带宽限制，1600×1200@Mono8 实测上限约 5.5 FPS
+
+    # 相机配置（Basler acA1600-660gm GigE）
     CAMERA_TYPE: str = "basler"
-    CAMERA_IP: str = "192.168.1.100"
+    CAMERA_IP: str = "192.168.1.12"
     CAMERA_TIMEOUT_MS: int = 5000
-    
-    # PLC 配置
-    PLC_IP: str = "192.168.1.200"
+    CAMERA_PIXEL_FORMAT: str = "mono"  # "mono" = 灰度(Mono8→BGR), "color" = 彩色(BGR8)
+
+    # PLC 配置（CompactLogix 1769-L16ER/B B1B）
+    PLC_IP: str = "192.168.1.19"
     PLC_HEARTBEAT_INTERVAL_MS: int = 500
     PLC_TIMEOUT_MS: int = 3000
     

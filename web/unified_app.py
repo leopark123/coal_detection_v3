@@ -1,0 +1,303 @@
+"""
+翻车机积煤检测系统 V3.0 - 统一 Web 应用
+
+替代原有 3 个独立 app，支持多翻车机多漏斗。
+
+启动方式：
+    python -m uvicorn web.unified_app:app --host 0.0.0.0 --port 8080
+"""
+
+import os
+import sys
+import time
+import asyncio
+from pathlib import Path
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from loguru import logger
+
+# 项目根目录
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from config.config import Config
+from config.devices_config import DevicesConfig
+from web.common import (
+    StreamAppState,
+    run_websocket_stream,
+    mount_static_and_templates,
+    append_bounded,
+    encode_frame_jpeg_base64,
+)
+from web.state_manager import StateManager
+
+
+# ═══════════════════════════════════════════════════════════════
+# 全局状态
+# ═══════════════════════════════════════════════════════════════
+state_manager = StateManager()
+
+DEVICES_YAML = os.getenv(
+    "DEVICES_YAML",
+    str(Path(__file__).parent.parent / "config" / "devices.yaml"),
+)
+
+
+# ═══════════════════════════════════════════════════════════════
+# FastAPI Lifespan
+# ═══════════════════════════════════════════════════════════════
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    logger.info("[UnifiedApp] 启动中...")
+
+    # 加载基础配置
+    base_config = Config()
+
+    # 加载多机拓扑
+    yaml_path = DEVICES_YAML
+    if not Path(yaml_path).exists():
+        logger.error(f"[UnifiedApp] 设备配置文件不存在: {yaml_path}")
+        yield
+        return
+
+    devices_config = DevicesConfig.from_yaml(yaml_path)
+    logger.info(
+        f"[UnifiedApp] 加载配置: {len(devices_config.machines)} 台翻车机"
+    )
+
+    # 初始化所有硬件
+    state_manager.initialize(devices_config, base_config)
+
+    yield
+
+    # 关闭
+    logger.info("[UnifiedApp] 关闭中...")
+    state_manager.shutdown()
+
+
+# ═══════════════════════════════════════════════════════════════
+# FastAPI App
+# ═══════════════════════════════════════════════════════════════
+app = FastAPI(title="翻车机积煤检测系统", lifespan=lifespan)
+templates = mount_static_and_templates(app)
+
+
+# ═══════════════════════════════════════════════════════════════
+# 页面路由
+# ═══════════════════════════════════════════════════════════════
+@app.get("/", response_class=HTMLResponse)
+async def overview_page(request: Request):
+    """总览页"""
+    return templates.TemplateResponse("overview.html", {"request": request})
+
+
+@app.get("/machine/{machine_id}", response_class=HTMLResponse)
+async def machine_detail_page(request: Request, machine_id: str):
+    """翻车机详情页"""
+    ms = state_manager.get_machine_state(machine_id)
+    if not ms:
+        return HTMLResponse(content="翻车机不存在", status_code=404)
+
+    mc = ms.machine_config
+    funnels_data = []
+    for fc in mc.funnels:
+        funnels_data.append({"id": fc.id, "name": fc.name})
+
+    return templates.TemplateResponse("machine_detail.html", {
+        "request": request,
+        "machine_id": machine_id,
+        "machine_name": mc.name,
+        "plc_ip": mc.plc_ip,
+        "funnels": funnels_data,
+    })
+
+
+@app.get("/machine/{machine_id}/funnel/{funnel_id}", response_class=HTMLResponse)
+async def funnel_detail_page(request: Request, machine_id: str, funnel_id: str):
+    """漏斗详情页"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return HTMLResponse(content="漏斗不存在", status_code=404)
+
+    ms = state_manager.get_machine_state(machine_id)
+    mc = ms.machine_config
+    fc = next((f for f in mc.funnels if f.id == funnel_id), None)
+
+    return templates.TemplateResponse("funnel_detail.html", {
+        "request": request,
+        "machine_id": machine_id,
+        "machine_name": mc.name,
+        "funnel_id": funnel_id,
+        "funnel_name": fc.name if fc else funnel_id,
+        "grid_count": fc.grid_count if fc else 0,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# WebSocket 路由
+# ═══════════════════════════════════════════════════════════════
+@app.websocket("/ws/overview")
+async def overview_ws(websocket: WebSocket):
+    """总览状态推送（2s 间隔，无视频）"""
+    await websocket.accept()
+    logger.info("[UnifiedApp] 总览 WebSocket 已连接")
+    try:
+        while True:
+            data = state_manager.get_overview_data()
+            await websocket.send_json({"machines": data})
+            await asyncio.sleep(2.0)
+    except WebSocketDisconnect:
+        logger.info("[UnifiedApp] 总览 WebSocket 已断开")
+    except Exception as e:
+        logger.error(f"[UnifiedApp] 总览 WebSocket 错误: {e}")
+
+
+@app.websocket("/ws/funnel/{machine_id}/{funnel_id}")
+async def funnel_ws(websocket: WebSocket, machine_id: str, funnel_id: str):
+    """单漏斗视频流（复用 run_websocket_stream）"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        await websocket.close(code=4004)
+        return
+
+    app_tag = f"[{machine_id}/{funnel_id}]"
+
+    def _detect_frame(frame, frame_id):
+        return fs.detector.detect_device(frame, frame_id)
+
+    def _on_result(result):
+        fs.detection_count += 1
+        if getattr(result, "device_has_coal", False):
+            fs.coal_detections += 1
+        fs.last_result = result
+
+    def _build_history(result, frame_id):
+        return {
+            "frame_id": frame_id,
+            "timestamp": time.time(),
+            "device_has_coal": getattr(result, "device_has_coal", False),
+            "coal_grids": getattr(result, "coal_grids", 0),
+            "coal_percentage": getattr(result, "coal_percentage", 0.0),
+            "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
+            "process_time": getattr(result, "process_time_ms", 0.0),
+        }
+
+    def _render_frame(frame, result):
+        if hasattr(fs.detector, "visualize_device"):
+            return fs.detector.visualize_device(frame, result)
+        return frame
+
+    def _build_response(result, image_base64):
+        resp = {
+            "image": image_base64,
+            "detection_count": fs.detection_count,
+            "coal_detections": fs.coal_detections,
+        }
+        if hasattr(result, "to_dict"):
+            resp["result"] = result.to_dict()
+        if hasattr(fs.detector, "get_device_statistics"):
+            resp["statistics"] = fs.detector.get_device_statistics()
+        return resp
+
+    await run_websocket_stream(
+        websocket,
+        app_tag=app_tag,
+        state=fs,
+        detect_frame=_detect_frame,
+        on_result=_on_result,
+        build_history_entry=_build_history,
+        render_frame=_render_frame,
+        build_response_data=_build_response,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# REST API
+# ═══════════════════════════════════════════════════════════════
+@app.get("/api/overview")
+async def api_overview():
+    """全局状态概览"""
+    return {"machines": state_manager.get_overview_data()}
+
+
+@app.get("/api/machine/{machine_id}/status")
+async def api_machine_status(machine_id: str):
+    """翻车机状态"""
+    ms = state_manager.get_machine_state(machine_id)
+    if not ms:
+        return JSONResponse({"error": "翻车机不存在"}, status_code=404)
+
+    return {
+        "machine_id": machine_id,
+        "name": ms.machine_config.name,
+        "plc_ip": ms.machine_config.plc_ip,
+        "plc_connected": ms.plc_connected,
+        "alert_level": ms.worst_alert_level,
+        "funnel_count": len(ms.funnels),
+        "is_any_alarm": ms.is_any_alarm,
+    }
+
+
+@app.get("/api/machine/{machine_id}/funnel/{funnel_id}/status")
+async def api_funnel_status(machine_id: str, funnel_id: str):
+    """漏斗状态"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return JSONResponse({"error": "漏斗不存在"}, status_code=404)
+
+    return {
+        "machine_id": machine_id,
+        "funnel_id": funnel_id,
+        "is_running": fs.is_running,
+        "detection_count": fs.detection_count,
+        "coal_detections": fs.coal_detections,
+    }
+
+
+@app.get("/api/machine/{machine_id}/funnel/{funnel_id}/statistics")
+async def api_funnel_statistics(machine_id: str, funnel_id: str):
+    """漏斗检测统计"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return JSONResponse({"error": "漏斗不存在"}, status_code=404)
+
+    stats = {}
+    if fs.detector and hasattr(fs.detector, "get_device_statistics"):
+        stats = fs.detector.get_device_statistics()
+
+    stats.update({
+        "detection_count": fs.detection_count,
+        "coal_detections": fs.coal_detections,
+        "coal_rate": fs.coal_detections / max(fs.detection_count, 1),
+    })
+    return stats
+
+
+@app.get("/api/machine/{machine_id}/funnel/{funnel_id}/history")
+async def api_funnel_history(machine_id: str, funnel_id: str):
+    """漏斗检测历史"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return JSONResponse({"error": "漏斗不存在"}, status_code=404)
+
+    return {
+        "total_records": len(fs.detection_history),
+        "history": fs.detection_history[-50:],
+    }
+
+
+@app.post("/api/machine/{machine_id}/funnel/{funnel_id}/reset_stats")
+async def api_funnel_reset_stats(machine_id: str, funnel_id: str):
+    """重置漏斗统计"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return JSONResponse({"error": "漏斗不存在"}, status_code=404)
+
+    fs.reset_stream_counters()
+    fs.coal_detections = 0
+    if fs.detector and hasattr(fs.detector, "reset_statistics"):
+        fs.detector.reset_statistics()
+
+    return {"status": "ok", "message": "统计已重置"}

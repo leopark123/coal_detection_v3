@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>翻车机积煤检测系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .conn-status {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: #888;
+        }
+        .conn-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #555;
+        }
+        .conn-dot.connected { background: #2ecc71; }
+        .conn-dot.disconnected { background: #e74c3c; }
+
+        /* Main */
+        .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+        /* Machine Grid */
+        .machine-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        /* Machine Card */
+        .machine-card {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .machine-card:hover {
+            border-color: #4a9eff;
+            transform: translateY(-2px);
+        }
+        .machine-card.alert-CRITICAL { border-left: 4px solid #e74c3c; }
+        .machine-card.alert-WARNING { border-left: 4px solid #e67e22; }
+        .machine-card.alert-ATTENTION { border-left: 4px solid #f39c12; }
+        .machine-card.alert-NORMAL { border-left: 4px solid #2ecc71; }
+
+        .machine-header {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .machine-name { font-size: 18px; font-weight: 600; }
+        .plc-status {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: #888;
+        }
+        .plc-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+        }
+        .plc-dot.online { background: #2ecc71; }
+        .plc-dot.offline { background: #e74c3c; }
+
+        .alert-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .alert-NORMAL { background: #1a3a1a; color: #2ecc71; }
+        .alert-ATTENTION { background: #3a3a1a; color: #f39c12; }
+        .alert-WARNING { background: #3a2a1a; color: #e67e22; }
+        .alert-CRITICAL { background: #3a1a1a; color: #e74c3c; }
+        .alert-UNKNOWN { background: #2a2a2a; color: #888; }
+
+        /* Funnel Grid inside machine card */
+        .funnel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            padding: 16px;
+        }
+        .funnel-cell {
+            background: #12122a;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .funnel-cell.alert-CRITICAL { border-color: #e74c3c; }
+        .funnel-cell.alert-WARNING { border-color: #e67e22; }
+        .funnel-cell.alert-ATTENTION { border-color: #f39c12; }
+        .funnel-cell.alert-NORMAL { border-color: #2ecc71; }
+
+        .funnel-name { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        .funnel-stat { font-size: 11px; color: #888; }
+        .funnel-stat .value { color: #ccc; font-weight: 600; }
+
+        /* Footer stats */
+        .machine-footer {
+            padding: 10px 16px;
+            border-top: 1px solid #2a2a4a;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #555;
+        }
+        .empty-state h2 { font-size: 18px; margin-bottom: 8px; }
+
+        @media (max-width: 500px) {
+            .machine-grid { grid-template-columns: 1fr; }
+            .funnel-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>翻车机积煤检测系统</h1>
+        <div class="conn-status">
+            <div class="conn-dot" id="ws-dot"></div>
+            <span id="ws-text">连接中...</span>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="machine-grid" id="machine-grid">
+            <div class="empty-state">
+                <h2>等待数据...</h2>
+                <p>正在连接服务器</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/ws-reconnect.js"></script>
+    <script>
+        const machineGrid = document.getElementById('machine-grid');
+        const wsDot = document.getElementById('ws-dot');
+        const wsText = document.getElementById('ws-text');
+
+        function renderMachines(machines) {
+            if (!machines || machines.length === 0) {
+                machineGrid.innerHTML = '<div class="empty-state"><h2>无翻车机配置</h2><p>请在 config/devices.yaml 中添加翻车机</p></div>';
+                return;
+            }
+
+            machineGrid.innerHTML = machines.map(function(m) {
+                const alertClass = 'alert-' + (m.alert_level || 'UNKNOWN');
+                const plcClass = m.plc_connected ? 'online' : 'offline';
+                const plcText = m.plc_connected ? 'PLC 在线' : 'PLC 离线';
+
+                const funnelsHtml = m.funnels.map(function(f) {
+                    const fAlertClass = 'alert-' + (f.alert_level || 'UNKNOWN');
+                    const coalInfo = f.total_grids > 0
+                        ? f.coal_grids + '/' + f.total_grids
+                        : '--';
+                    return '<div class="funnel-cell ' + fAlertClass + '">'
+                        + '<div class="funnel-name">' + escapeHtml(f.name) + '</div>'
+                        + '<div class="funnel-stat">积煤: <span class="value">' + coalInfo + '</span></div>'
+                        + '<div class="funnel-stat">检测: <span class="value">' + f.detection_count + '</span></div>'
+                        + '</div>';
+                }).join('');
+
+                const totalDetections = m.funnels.reduce(function(s, f) { return s + f.detection_count; }, 0);
+                const totalCoal = m.funnels.reduce(function(s, f) { return s + f.coal_detections; }, 0);
+
+                return '<div class="machine-card ' + alertClass + '" onclick="location.href=\'/machine/' + m.id + '\'">'
+                    + '<div class="machine-header">'
+                    + '<span class="machine-name">' + escapeHtml(m.name) + '</span>'
+                    + '<div style="display:flex;align-items:center;gap:10px;">'
+                    + '<span class="alert-badge ' + alertClass + '">' + alertText(m.alert_level) + '</span>'
+                    + '<div class="plc-status"><div class="plc-dot ' + plcClass + '"></div>' + plcText + '</div>'
+                    + '</div></div>'
+                    + '<div class="funnel-grid">' + funnelsHtml + '</div>'
+                    + '<div class="machine-footer">'
+                    + '<span>' + m.funnel_count + ' 个漏斗</span>'
+                    + '<span>检测 ' + totalDetections + ' 帧 / 报警 ' + totalCoal + ' 次</span>'
+                    + '</div></div>';
+            }).join('');
+        }
+
+        function alertText(level) {
+            var map = {
+                'NORMAL': '正常', 'ATTENTION': '关注',
+                'WARNING': '警告', 'CRITICAL': '紧急', 'UNKNOWN': '未知'
+            };
+            return map[level] || level;
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        createReconnectingWS(
+            'ws://' + location.host + '/ws/overview',
+            function(data) {
+                renderMachines(data.machines);
+            },
+            {
+                onOpen: function() {
+                    wsDot.className = 'conn-dot connected';
+                    wsText.textContent = '已连接';
+                },
+                onClose: function() {
+                    wsDot.className = 'conn-dot disconnected';
+                    wsText.textContent = '已断开，重连中...';
+                }
+            }
+        );
+    </script>
+</body>
+</html>

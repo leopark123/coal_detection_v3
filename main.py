@@ -110,19 +110,27 @@ def run_detection_loop(config: Config):
             voted_result = voter.vote(result)
             
             # ═══════════════════════════════════════════════════════
-            # 4. 输出到 PLC
+            # 4. 输出到 PLC（5 个标签，最小化通信）
             # ═══════════════════════════════════════════════════════
-            plc.write("Detection.CoalPresent", voted_result.has_coal or False)
-            plc.write("Detection.Confidence", voted_result.confidence)
-            plc.write("Detection.NeedManualConfirm", voted_result.need_manual_confirm)
-            plc.write("Detection.VisionHeartbeat", frame_id % 65536)
-            
+            coal_present = voted_result.has_coal or False
+            need_manual = voted_result.need_manual_confirm
+            confidence = voted_result.confidence
+
+            # 故障码
             if not voted_result.quality_ok:
-                plc.write("Detection.FaultCode", 3)  # 画面质量问题
-            elif voted_result.need_manual_confirm:
-                plc.write("Detection.FaultCode", 4)  # 低置信度
+                fault_code = 3  # 画面质量问题
+            elif need_manual:
+                fault_code = 4  # 低置信度，需人工确认
             else:
-                plc.write("Detection.FaultCode", 0)
+                fault_code = 0
+
+            # 一次性发送（含心跳）
+            plc.send_detection_result(
+                coal_present=coal_present,
+                confidence=confidence,
+                need_manual=need_manual,
+                fault_code=fault_code
+            )
             
             # ═══════════════════════════════════════════════════════
             # 5. 保存图像（报警或定时）

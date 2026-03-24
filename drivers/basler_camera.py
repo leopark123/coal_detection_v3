@@ -3,15 +3,21 @@
 
 功能：
 1. 连接 Basler GigE 工业相机
-2. 高速图像采集（10 FPS，3072×2048）
-3. 断线重连机制
-4. 错误处理和故障报告
+2. 高速图像采集（10 FPS，1600×1200）
+3. 支持灰度(Mono8)和彩色(BGR8)相机，统一输出 BGR 3 通道
+4. 断线重连机制
+5. 错误处理和故障报告
+
+配置项 CAMERA_PIXEL_FORMAT：
+- "mono":  灰度相机（如 acA1600-660gm），Mono8→BGR 转换
+- "color": 彩色相机，直接输出 BGR8
 
 依赖：
 - pypylon >= 3.0.0: pip install pypylon
 """
 
 import numpy as np
+import cv2
 import time
 from typing import Optional
 from loguru import logger
@@ -31,9 +37,12 @@ class BaslerCamera:
     使用 pypylon SDK 进行 GigE Vision 通信。
     采集策略：GrabStrategy_LatestImageOnly（只取最新帧，符合"最新帧最有价值"原则）
 
+    根据 config.CAMERA_PIXEL_FORMAT 自动适配灰度/彩色相机，
+    统一输出 BGR 3 通道图像，保持下游检测流水线兼容。
+
     Usage:
         camera = BaslerCamera(config)
-        frame = camera.grab()  # BGR ndarray
+        frame = camera.grab()  # BGR ndarray, shape=(H, W, 3)
     """
 
     def __init__(self, config):
@@ -53,6 +62,10 @@ class BaslerCamera:
         self.frame_count = 0
         self.last_error: Optional[str] = None
 
+        # 像素格式："mono" = 灰度相机, "color" = 彩色相机
+        self.pixel_format = getattr(config, "CAMERA_PIXEL_FORMAT", "mono").lower()
+        self.is_mono = self.pixel_format == "mono"
+
         # 性能统计
         self.grab_start_time = time.time()
         self.total_frames = 0
@@ -60,8 +73,13 @@ class BaslerCamera:
 
         # 初始化格式转换器（预创建，复用）
         self.converter = pylon.ImageFormatConverter()
-        self.converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+        if self.is_mono:
+            self.converter.OutputPixelFormat = pylon.PixelType_Mono8
+        else:
+            self.converter.OutputPixelFormat = pylon.PixelType_BGR8packed
         self.converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
+        logger.info(f"[BaslerCamera] 像素格式: {'Mono8 (灰度→BGR)' if self.is_mono else 'BGR8 (彩色)'}")
 
         # 自动连接
         self.connect()
@@ -129,39 +147,61 @@ class BaslerCamera:
             return False
 
     def _configure_camera(self):
-        """配置相机采集参数"""
-        node_map = self.camera.GetNodeMap()
+        """
+        配置相机采集参数
+
+        acA1600-60gm 使用旧版 SFNC 命名（带 Abs 后缀），
+        且 1600×1200@GigE 带宽上限约 5.8 FPS。
+        """
+        # 使用 pypylon 属性访问（兼容新旧 SFNC 命名）
+        cam = self.camera
 
         # 分辨率
         try:
-            node_map.GetNode("Width").SetValue(self.width)
-            node_map.GetNode("Height").SetValue(self.height)
+            cam.Width.Value = self.width
+            cam.Height.Value = self.height
         except Exception:
             logger.warning("[BaslerCamera] 无法设置分辨率，使用相机默认值")
 
-        # 帧率
+        # GigE 网络参数（先设网络，影响可达帧率）
         try:
-            node_map.GetNode("AcquisitionFrameRateEnable").SetValue(True)
-            node_map.GetNode("AcquisitionFrameRate").SetValue(self.config.TARGET_FPS)
-        except Exception:
-            logger.warning("[BaslerCamera] 无法设置帧率，使用相机默认值")
-
-        # 曝光（连续模式，关闭自动曝光）
-        try:
-            node_map.GetNode("ExposureAuto").SetValue("Off")
-            node_map.GetNode("ExposureTime").SetValue(5000.0)
-        except Exception:
-            logger.debug("[BaslerCamera] 曝光参数设置跳过")
-
-        # GigE 网络包大小（提高传输效率）
-        try:
-            node_map.GetNode("GevSCPSPacketSize").SetValue(8192)
+            cam.GevSCPSPacketSize.Value = 1500  # 标准 MTU（不依赖 Jumbo Frame）
         except Exception:
             logger.debug("[BaslerCamera] 网络包大小设置跳过")
+
+        try:
+            cam.GevSCPD.Value = 100  # 包间延迟（越小越快，0 可能丢包）
+        except Exception:
+            logger.debug("[BaslerCamera] 包间延迟设置跳过")
+
+        # 帧率（acA1600-60gm 用 AcquisitionFrameRateAbs）
+        try:
+            cam.AcquisitionFrameRateEnable.Value = True
+            cam.AcquisitionFrameRateAbs.Value = self.config.TARGET_FPS
+            actual_fps = cam.ResultingFrameRateAbs.Value
+            logger.info(f"[BaslerCamera] 帧率: 目标={self.config.TARGET_FPS}, 实际可达={actual_fps:.1f} FPS")
+        except Exception:
+            try:
+                # 新版 SFNC 命名回退
+                cam.AcquisitionFrameRate.Value = self.config.TARGET_FPS
+            except Exception:
+                logger.warning("[BaslerCamera] 无法设置帧率，使用相机默认值")
+
+        # 曝光
+        try:
+            cam.ExposureAuto.Value = "Off"
+            cam.ExposureTimeAbs.Value = 5000.0  # 5ms
+        except Exception:
+            try:
+                cam.ExposureTime.Value = 5000.0
+            except Exception:
+                logger.debug("[BaslerCamera] 曝光参数设置跳过")
 
     def grab(self) -> np.ndarray:
         """
         获取一帧 BGR 图像
+
+        灰度相机自动 Mono8→BGR 转换，彩色相机直接输出 BGR。
 
         Returns:
             BGR 图像, shape=(H, W, 3), dtype=uint8
@@ -183,15 +223,17 @@ class BaslerCamera:
                 grab_result.Release()
                 raise RuntimeError(f"Grab failed: {error_code} - {error_desc}")
 
-            # 转换为 BGR
             image = self.converter.Convert(grab_result)
             frame = image.GetArray().copy()
             grab_result.Release()
 
             # 确保分辨率正确
             if frame.shape[:2] != (self.height, self.width):
-                import cv2
                 frame = cv2.resize(frame, (self.width, self.height))
+
+            # 灰度相机：Mono8 → BGR 3 通道（保持下游流水线兼容）
+            if self.is_mono and frame.ndim == 2:
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
             self.frame_count += 1
             self.total_frames += 1

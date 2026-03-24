@@ -15,12 +15,16 @@
 | 类型 | 工业视觉检测系统 |
 | 环境 | 煤矿翻车机房（防爆、高粉尘） |
 | 核心目标 | 实时检测格栅积煤，端到端延迟 < 100ms |
+| 相机 | Basler acA1600-660gm (Mono8 灰度, GigE, IP: 192.168.1.12) |
+| PLC | AB CompactLogix 1769-L16ER/B B1B (Ethernet/IP, IP: 192.168.1.19) |
+| 本机 IP | 192.168.1.10 |
 
 ### 1.2 技术栈
 
 ```
 语言：Python 3.10+
 视觉：OpenCV 4.8+ (可选 CUDA)
+相机：pypylon (Basler acA1600-660gm, 1600×1200, Mono8→BGR)
 通信：pycomm3 (AB PLC)
 Web：FastAPI + WebSocket
 日志：loguru
@@ -34,9 +38,10 @@ Web：FastAPI + WebSocket
 │                    系统架构（生产模式）                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   海康相机 ──→ 双缓冲 ──→ 检测算法 ──→ 综合判定 ──→ PLC输出     │
-│      ↓          ↓          ↓           ↓           ↓           │
-│   GigE采集   SharedMem   ECC+CLAHE   三级置信度   心跳+结果     │
+│   Basler相机 ─→ 双缓冲 ──→ 检测算法 ──→ 综合判定 ──→ PLC输出     │
+│      ↓           ↓          ↓           ↓           ↓           │
+│   GigE采集    SharedMem   ECC+CLAHE   三级置信度   心跳+结果     │
+│   Mono8→BGR                                                     │
 │                         格栅计数                                │
 │                         面积检测                                │
 │                                                                 │
@@ -82,7 +87,7 @@ coal_detection/
 │   ├── __init__.py
 │   ├── factory.py          # 驱动工厂
 │   ├── mock_drivers.py     # Mock 驱动（开发用）
-│   └── hikvision_camera.py # 海康相机驱动（占位，待接入 SDK）
+│   └── basler_camera.py    # Basler GigE 相机驱动（acA1600-660gm）
 │
 ├── algo/                   # 检测算法
 │   ├── __init__.py
@@ -166,7 +171,7 @@ coal_detection/
 |------|----------------|-----------------|
 | 相机 | MockCamera | HikvisionCamera |
 | PLC | MockPLC | AllenBradleyPLC |
-| 分辨率 | 1024×768 | 3072×2048 |
+| 分辨率 | 1024×768 | 1600×1200 |
 | 帧率 | 1 FPS | 10 FPS |
 | ECC 配准 | 禁用 | 启用 |
 | CUDA | 禁用 | 启用 |
@@ -286,16 +291,15 @@ FAULT_QUALITY_FAIL = 3   # 画面质量问题
 FAULT_LOW_CONFIDENCE = 4 # 低置信度，需人工确认
 ```
 
-### 5.3 PLC 点位表
+### 5.3 PLC 点位表（5 个标签，最小化通信）
 
 | 点位名称 | 类型 | 方向 | 说明 |
 |----------|------|------|------|
-| Detection.CoalPresent | BOOL | 写 | 积煤检测结果 |
-| Detection.Confidence | STRING | 写 | 置信度等级 |
-| Detection.NeedManualConfirm | BOOL | 写 | 需人工确认 |
-| Detection.VisionHeartbeat | INT | 写 | 心跳递增值 |
-| Detection.FaultCode | INT | 写 | 故障码 |
-| Detection.SystemReady | BOOL | 写 | 系统就绪 |
+| Vision_CanTip | BOOL | 写 | 可翻转（无积煤且置信度足够=True，安全连锁核心信号） |
+| Vision_FaultCode | DINT | 写 | 故障码（0=正常, 1=相机故障, 2=PLC通信, 3=画质问题, 4=低置信度需人工） |
+| Vision_ResultValid | BOOL | 写 | 结果可信（高/中置信度=True, 低置信度=False） |
+| IPC_Heartbeat | DINT | 写 | 心跳递增值（500ms 周期，PLC 校验视觉系统存活） |
+| IPC_Online | BOOL | 写 | 视觉系统在线（启动时=True, 关闭时=False） |
 
 ---
 
@@ -360,7 +364,7 @@ def fast_ecc_align(self, frame):
     核心优化：小图算矩阵，大图应用
     耗时：从 30秒 → 15ms
     """
-    # 1. 降采样（3072×2048 → 320×240）
+    # 1. 降采样（1600×1200 → 320×240）
     frame_small = cv2.resize(frame, (320, 240))
     frame_gray = cv2.cvtColor(frame_small, cv2.COLOR_BGR2GRAY)
     
@@ -372,11 +376,11 @@ def fast_ecc_align(self, frame):
     )
     
     # 3. ★ 关键：缩放平移量到原图尺寸
-    warp_matrix[0, 2] *= (3072 / 320)  # scale_x
-    warp_matrix[1, 2] *= (2048 / 240)  # scale_y
-    
+    warp_matrix[0, 2] *= (1600 / 320)  # scale_x
+    warp_matrix[1, 2] *= (1200 / 240)  # scale_y
+
     # 4. 应用到大图
-    return cv2.warpAffine(frame, warp_matrix, (3072, 2048))
+    return cv2.warpAffine(frame, warp_matrix, (1600, 1200))
 ```
 
 ### 6.5 时间分配预算
@@ -623,8 +627,8 @@ python main.py --dev
 pip install -r requirements.txt
 pip install pycomm3  # PLC 通信
 
-# 3. 安装海康 SDK
-# 参考海康官方文档
+# 3. 安装 Basler pypylon SDK
+pip install pypylon
 
 # 4. 配置
 cp config/config_prod.yaml config/config.yaml
@@ -669,7 +673,7 @@ python main.py --config config/config.yaml
 **排查步骤**：
 1. 检查网线连接
 2. 检查 IP 配置
-3. 检查海康 SDK 是否正确安装
+3. 检查 pypylon SDK 是否正确安装
 4. 检查是否有其他程序占用相机
 
 ### Q4: PLC 心跳超时

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ machine_name }} - 翻车机详情</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .breadcrumb { font-size: 13px; color: #888; }
+        .breadcrumb a { color: #4a9eff; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .header-title { font-size: 20px; font-weight: 600; }
+        .header-info { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+        .plc-badge {
+            padding: 3px 10px; border-radius: 10px; font-size: 12px;
+        }
+        .plc-online { background: #1a3a1a; color: #2ecc71; }
+        .plc-offline { background: #3a1a1a; color: #e74c3c; }
+        .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block; }
+        .conn-dot.connected { background: #2ecc71; }
+        .conn-dot.disconnected { background: #e74c3c; }
+
+        .main { padding: 20px; max-width: 1600px; margin: 0 auto; }
+
+        /* Video Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 16px;
+        }
+
+        .funnel-card {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .funnel-card:hover { border-color: #4a9eff; }
+        .funnel-card.alert-CRITICAL { border-color: #e74c3c; }
+        .funnel-card.alert-WARNING { border-color: #e67e22; }
+
+        .funnel-card-header {
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a4a;
+            font-size: 14px; font-weight: 600;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 */
+            background: #000;
+        }
+        .video-container img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+        }
+        .video-overlay {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 10px;
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: #aaa;
+        }
+
+        .funnel-stats {
+            padding: 10px 14px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            font-size: 12px;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 16px; font-weight: 700; color: #fff; }
+        .stat-label { color: #666; margin-top: 2px; }
+
+        .alert-badge {
+            padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600;
+        }
+        .alert-NORMAL { background: #1a3a1a; color: #2ecc71; }
+        .alert-ATTENTION { background: #3a3a1a; color: #f39c12; }
+        .alert-WARNING { background: #3a2a1a; color: #e67e22; }
+        .alert-CRITICAL { background: #3a1a1a; color: #e74c3c; }
+        .alert-UNKNOWN { background: #2a2a2a; color: #888; }
+
+        .no-signal {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #555; font-size: 14px;
+        }
+
+        @media (max-width: 500px) {
+            .video-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="breadcrumb"><a href="/">总览</a> &gt; {{ machine_name }}</div>
+            <div class="header-title">{{ machine_name }}</div>
+        </div>
+        <div class="header-info">
+            <span id="plc-badge" class="plc-badge plc-offline">PLC {{ plc_ip }}</span>
+            <span><span class="conn-dot" id="ws-dot"></span></span>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="video-grid" id="video-grid">
+            {% for f in funnels %}
+            <div class="funnel-card" id="card-{{ f.id }}"
+                 onclick="location.href='/machine/{{ machine_id }}/funnel/{{ f.id }}'">
+                <div class="funnel-card-header">
+                    <span>{{ f.name }}</span>
+                    <span class="alert-badge alert-UNKNOWN" id="alert-{{ f.id }}">等待</span>
+                </div>
+                <div class="video-container">
+                    <img id="video-{{ f.id }}" alt="{{ f.name }}">
+                    <div class="no-signal" id="nosignal-{{ f.id }}">无信号</div>
+                    <div class="video-overlay">
+                        <span id="time-{{ f.id }}">--ms</span>
+                        <span id="frame-{{ f.id }}">帧 #--</span>
+                    </div>
+                </div>
+                <div class="funnel-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="visible-{{ f.id }}">--</div>
+                        <div class="stat-label">可见格栅</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="coal-{{ f.id }}">--</div>
+                        <div class="stat-label">积煤格栅</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="count-{{ f.id }}">0</div>
+                        <div class="stat-label">检测帧数</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script src="/static/js/ws-reconnect.js"></script>
+    <script>
+        const machineId = "{{ machine_id }}";
+        const funnels = {{ funnels | tojson }};
+        const wsDot = document.getElementById('ws-dot');
+        const plcBadge = document.getElementById('plc-badge');
+
+        const alertTextMap = {
+            'NORMAL': '正常', 'ATTENTION': '关注',
+            'WARNING': '警告', 'CRITICAL': '紧急', 'UNKNOWN': '等待'
+        };
+
+        // 为每个漏斗创建独立的 WebSocket
+        funnels.forEach(function(f) {
+            const fid = f.id;
+
+            createReconnectingWS(
+                'ws://' + location.host + '/ws/funnel/' + machineId + '/' + fid,
+                function(data) {
+                    // 视频
+                    if (data.image) {
+                        document.getElementById('video-' + fid).src = 'data:image/jpeg;base64,' + data.image;
+                        const ns = document.getElementById('nosignal-' + fid);
+                        if (ns) ns.style.display = 'none';
+                    }
+
+                    // 结果
+                    const r = data.result || {};
+                    const alertLevel = r.device_alert_level || 'UNKNOWN';
+                    const alertEl = document.getElementById('alert-' + fid);
+                    alertEl.className = 'alert-badge alert-' + alertLevel;
+                    alertEl.textContent = alertTextMap[alertLevel] || alertLevel;
+
+                    // 卡片边框
+                    const card = document.getElementById('card-' + fid);
+                    card.className = 'funnel-card alert-' + alertLevel;
+
+                    // 统计
+                    document.getElementById('visible-' + fid).textContent = r.visible_grids || '--';
+                    document.getElementById('coal-' + fid).textContent = r.coal_grids || '0';
+                    document.getElementById('count-' + fid).textContent = data.detection_count || 0;
+                    document.getElementById('time-' + fid).textContent = (r.process_time_ms || 0).toFixed(0) + 'ms';
+                    document.getElementById('frame-' + fid).textContent = '帧 #' + (r.frame_id || 0);
+                },
+                {
+                    onOpen: function() {
+                        wsDot.className = 'conn-dot connected';
+                    },
+                    onClose: function() {
+                        wsDot.className = 'conn-dot disconnected';
+                    }
+                }
+            );
+        });
+
+        // 总览 WebSocket 用于 PLC 状态
+        createReconnectingWS(
+            'ws://' + location.host + '/ws/overview',
+            function(data) {
+                const machines = data.machines || [];
+                const m = machines.find(function(m) { return m.id === machineId; });
+                if (m) {
+                    plcBadge.className = 'plc-badge ' + (m.plc_connected ? 'plc-online' : 'plc-offline');
+                    plcBadge.textContent = 'PLC ' + (m.plc_connected ? '在线' : '离线');
+                }
+            }
+        );
+    </script>
+</body>
+</html>
