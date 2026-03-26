@@ -9,7 +9,10 @@
 - **高性能**：双缓冲 + 非阻塞采集，单帧检测 < 15ms
 - **安全可靠**：三级置信度判定 + 多帧投票 + 人工确认机制
 - **实时 Web 监控**：三级页面（总览→翻车机→漏斗），WebSocket 实时推流
-- **PLC 联锁**：5 个标签最小化通信，500ms 心跳监控
+- **PLC 联锁**：6 个标签最小化通信，500ms 心跳监控
+- **窗口采集**：周期性采集窗口 + 多帧投票，非持续采集
+- **视觉启停**：UI 一键启停采集，停用时 PLC 允许翻车
+- **管理员设置**：Web 页面在线增删翻车机/漏斗，密码保护
 
 ## 硬件环境
 
@@ -115,18 +118,24 @@ coal_detection/
 │   └── ...
 │
 ├── plc/
-│   └── allen_bradley.py       # AB PLC 通信（5 标签）
+│   └── allen_bradley.py       # AB PLC 通信（6 标签）
+│
+├── core/
+│   └── capture_window.py      # 窗口采集控制器（状态机+投票）
 │
 ├── web/
 │   ├── unified_app.py         # 统一 Web 应用
 │   ├── state_manager.py       # 中央状态管理器
+│   ├── admin_api.py           # 管理员 API（增删翻车机/漏斗）
 │   ├── common.py              # 共享工具
 │   ├── templates/
-│   │   ├── overview.html      # 总览页
+│   │   ├── overview.html      # 总览页（实时时钟+采集状态+启停按钮）
 │   │   ├── machine_detail.html # 翻车机详情页
-│   │   └── funnel_detail.html # 漏斗详情页
-│   └── static/js/
-│       └── ws-reconnect.js    # WebSocket 自动重连
+│   │   ├── funnel_detail.html # 漏斗详情页
+│   │   └── settings.html      # 管理员设置页（密码保护）
+│   └── static/
+│       ├── css/theme.css      # 统一暗色主题+动画
+│       └── js/ws-reconnect.js # WebSocket 自动重连
 │
 ├── tools/
 │   ├── hardware_test.py       # 硬件连接测试
@@ -170,6 +179,25 @@ machines:
 | `Vision_ResultValid` | BOOL | 结果可信（高/中置信度=True） |
 | `IPC_Heartbeat` | DINT | 心跳递增（500ms 周期） |
 | `IPC_Online` | BOOL | 视觉系统在线 |
+| `Vision_Enable` | BOOL | 视觉采集启用（停用时 Allow_Tip 强制=1） |
+
+## 窗口采集模式
+
+系统不是持续采集，而是按周期在固定时间窗口内采集：
+
+```
+|--- 空闲(不采集) ---|--- 延时 ---|--- 采集窗口(连续采集) ---|--- 空闲 ---|
+|<-------------- cycle_interval_s (默认30s) ----------------->|
+```
+
+可配置参数（`devices.yaml` 或设置页 API）：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `capture_cycle_s` | 30 | 采集周期（秒） |
+| `capture_window_s` | 3 | 采集窗口时长（秒） |
+| `capture_delay_s` | 2 | 窗口前延时（秒） |
+| `capture_vote_threshold` | 0.6 | 投票阈值 |
 
 ## 开发模式 vs 生产模式
 
@@ -187,7 +215,7 @@ machines:
 # 运行全部测试
 pytest tests/ -v
 
-# 当前: 98 passed
+# 当前: 116 passed
 ```
 
 ## 参考文档

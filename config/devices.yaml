@@ -1,20 +1,27 @@
-# 翻车机积煤检测系统 V3.0 - 多机拓扑配置
-#
-# 层次结构：服务器 → 翻车机(machines) → 漏斗(funnels)
-# 每台翻车机独立 PLC，每个漏斗独立相机
-# 翻车机和漏斗数量可动态增减
-
 machines:
-  - id: "machine-1"
-    name: "1#翻车机"
-    plc_ip: "192.168.1.19"
-    plc_timeout_ms: 3000
-    plc_heartbeat_interval_ms: 500
-    funnels:
-      - id: "funnel-1"
-        name: "1#漏斗"
-        camera_ip: "192.168.1.12"
-        pixel_format: "mono"
-        camera_timeout_ms: 5000
-        grid_count: 125
-        grid_config_path: "config/grid_manual.yaml"
+- id: machine-1
+  name: 1#翻车机
+  plc_ip: 192.168.1.19
+  plc_timeout_ms: 3000
+  plc_heartbeat_interval_ms: 500
+  funnels:
+  - id: funnel-1
+    name: 1#漏斗
+    camera_ip: 192.168.1.12
+    pixel_format: mono
+    camera_timeout_ms: 5000
+    grid_count: 125
+    grid_config_path: config/grid_manual.yaml
+  - id: funnel-2
+    name: 2#漏斗
+    camera_ip: 192.168.1.13
+    pixel_format: mono
+    camera_timeout_ms: 5000
+    grid_count: 125
+    grid_config_path: config/grid_manual.yaml
+- id: machine-2
+  name: 2#翻车机
+  plc_ip: 192.168.1.20
+  plc_timeout_ms: 3000
+  plc_heartbeat_interval_ms: 500
+  funnels: []

@@ -4,116 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ machine_name }} - 翻车机详情</title>
+    <link rel="stylesheet" href="/static/css/theme.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0a0a1a;
-            color: #e0e0e0;
-            min-height: 100vh;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 14px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #2a2a4a;
-        }
-        .breadcrumb { font-size: 13px; color: #888; }
-        .breadcrumb a { color: #4a9eff; text-decoration: none; }
-        .breadcrumb a:hover { text-decoration: underline; }
-        .header-title { font-size: 20px; font-weight: 600; }
-        .header-info { display: flex; align-items: center; gap: 16px; font-size: 13px; }
-        .plc-badge {
-            padding: 3px 10px; border-radius: 10px; font-size: 12px;
-        }
-        .plc-online { background: #1a3a1a; color: #2ecc71; }
-        .plc-offline { background: #3a1a1a; color: #e74c3c; }
-        .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block; }
-        .conn-dot.connected { background: #2ecc71; }
-        .conn-dot.disconnected { background: #e74c3c; }
-
         .main { padding: 20px; max-width: 1600px; margin: 0 auto; }
-
-        /* Video Grid */
         .video-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 16px;
         }
-
         .funnel-card {
-            background: #1a1a2e;
-            border: 1px solid #2a2a4a;
-            border-radius: 10px;
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             overflow: hidden;
             cursor: pointer;
-            transition: border-color 0.2s;
+            transition: all var(--transition);
+            box-shadow: var(--shadow);
         }
-        .funnel-card:hover { border-color: #4a9eff; }
-        .funnel-card.alert-CRITICAL { border-color: #e74c3c; }
-        .funnel-card.alert-WARNING { border-color: #e67e22; }
-
+        .funnel-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+        .funnel-card.alert-CRITICAL { border-color: rgba(231, 76, 60, 0.5); }
+        .funnel-card.alert-WARNING { border-color: rgba(230, 126, 34, 0.5); }
         .funnel-card-header {
-            padding: 10px 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #2a2a4a;
+            padding: 12px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border);
             font-size: 14px; font-weight: 600;
         }
-
-        .video-container {
-            position: relative;
-            width: 100%;
-            padding-top: 75%; /* 4:3 */
-            background: #000;
-        }
-        .video-container img {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: contain;
-        }
-        .video-overlay {
-            position: absolute; bottom: 0; left: 0; right: 0;
-            background: rgba(0,0,0,0.7);
-            padding: 6px 10px;
-            display: flex; justify-content: space-between;
-            font-size: 11px; color: #aaa;
-        }
-
         .funnel-stats {
-            padding: 10px 14px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            font-size: 12px;
+            padding: 12px 16px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
         }
-        .stat-item { text-align: center; }
-        .stat-value { font-size: 16px; font-weight: 700; color: #fff; }
-        .stat-label { color: #666; margin-top: 2px; }
-
-        .alert-badge {
-            padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600;
-        }
-        .alert-NORMAL { background: #1a3a1a; color: #2ecc71; }
-        .alert-ATTENTION { background: #3a3a1a; color: #f39c12; }
-        .alert-WARNING { background: #3a2a1a; color: #e67e22; }
-        .alert-CRITICAL { background: #3a1a1a; color: #e74c3c; }
-        .alert-UNKNOWN { background: #2a2a2a; color: #888; }
-
-        .no-signal {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            color: #555; font-size: 14px;
-        }
-
-        @media (max-width: 500px) {
-            .video-grid { grid-template-columns: 1fr; }
-        }
+        .stat-value { font-size: 18px; }
+        .btn-vision-on { background: rgba(46,204,113,0.1); color: #2ecc71; border-color: rgba(46,204,113,0.3); }
+        .btn-vision-on:hover { background: rgba(46,204,113,0.2); }
+        .btn-vision-off { background: rgba(85,90,110,0.15); color: #8890a4; border-color: rgba(85,90,110,0.3); }
+        .btn-vision-off:hover { background: rgba(85,90,110,0.25); }
+        @media (max-width: 500px) { .video-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -122,9 +49,13 @@
             <div class="breadcrumb"><a href="/">总览</a> &gt; {{ machine_name }}</div>
             <div class="header-title">{{ machine_name }}</div>
         </div>
-        <div class="header-info">
+        <div class="header-right">
+            <button id="vision-btn" class="btn-vision btn-vision-on" onclick="toggleVision()" style="padding:5px 14px;border-radius:14px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;">● 采集中</button>
             <span id="plc-badge" class="plc-badge plc-offline">PLC {{ plc_ip }}</span>
-            <span><span class="conn-dot" id="ws-dot"></span></span>
+            <div class="conn-status"><div class="conn-dot" id="ws-dot"></div></div>
+            <a href="/settings" class="nav-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </a>
         </div>
     </div>
 
@@ -199,7 +130,7 @@
 
                     // 卡片边框
                     const card = document.getElementById('card-' + fid);
-                    card.className = 'funnel-card alert-' + alertLevel;
+                    card.className = 'funnel-card alert-' + alertLevel + (alertLevel === 'CRITICAL' ? ' alert-pulse' : '');
 
                     // 统计
                     document.getElementById('visible-' + fid).textContent = r.visible_grids || '--';
@@ -219,7 +150,38 @@
             );
         });
 
-        // 总览 WebSocket 用于 PLC 状态
+        // Vision enable/disable toggle
+        let visionEnabled = true;
+        const visionBtn = document.getElementById('vision-btn');
+
+        function updateVisionBtn() {
+            if (visionEnabled) {
+                visionBtn.className = 'btn-vision btn-vision-on';
+                visionBtn.textContent = '● 采集中';
+            } else {
+                visionBtn.className = 'btn-vision btn-vision-off';
+                visionBtn.textContent = '○ 已停用';
+            }
+        }
+
+        function toggleVision() {
+            const action = visionEnabled ? 'disable' : 'enable';
+            const label = visionEnabled ? '停用' : '启用';
+            if (!confirm('确认' + label + '视觉采集？\n\n停用后 Allow_Tip 强制=1（允许翻车）')) return;
+            fetch('/api/machine/' + machineId + '/vision/' + action, { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.error) {
+                        visionEnabled = !visionEnabled;
+                        updateVisionBtn();
+                    } else {
+                        alert('操作失败: ' + d.error);
+                    }
+                })
+                .catch(function(e) { alert('请求失败: ' + e); });
+        }
+
+        // 总览 WebSocket 用于 PLC 状态 + 视觉状态同步
         createReconnectingWS(
             'ws://' + location.host + '/ws/overview',
             function(data) {
@@ -228,6 +190,11 @@
                 if (m) {
                     plcBadge.className = 'plc-badge ' + (m.plc_connected ? 'plc-online' : 'plc-offline');
                     plcBadge.textContent = 'PLC ' + (m.plc_connected ? '在线' : '离线');
+                    // 同步视觉状态
+                    if (m.vision_enabled !== undefined) {
+                        visionEnabled = m.vision_enabled;
+                        updateVisionBtn();
+                    }
                 }
             }
         );

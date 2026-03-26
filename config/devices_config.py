@@ -26,6 +26,11 @@ class FunnelConfig:
     camera_timeout_ms: int = 5000
     grid_count: int = 125
     grid_config_path: str = "config/grid_manual.yaml"
+    # 窗口采集参数
+    capture_cycle_s: float = 30.0        # 采集周期（秒）
+    capture_window_s: float = 3.0        # 采集窗口时长（秒）
+    capture_delay_s: float = 2.0         # 窗口前延时（秒）
+    capture_vote_threshold: float = 0.6  # 投票阈值
 
 
 @dataclass
@@ -62,6 +67,10 @@ class DevicesConfig:
                     camera_timeout_ms=fn.get("camera_timeout_ms", 5000),
                     grid_count=fn.get("grid_count", 125),
                     grid_config_path=fn.get("grid_config_path", "config/grid_manual.yaml"),
+                    capture_cycle_s=fn.get("capture_cycle_s", 30.0),
+                    capture_window_s=fn.get("capture_window_s", 3.0),
+                    capture_delay_s=fn.get("capture_delay_s", 2.0),
+                    capture_vote_threshold=fn.get("capture_vote_threshold", 0.6),
                 ))
             machines.append(MachineConfig(
                 id=m["id"],
@@ -89,6 +98,72 @@ class DevicesConfig:
                 if f.id == funnel_id:
                     return f
         return None
+
+    def to_yaml(self, path: str):
+        """将当前拓扑配置写回 YAML 文件（持久化）"""
+        data = {"machines": []}
+        for m in self.machines:
+            machine_dict = {
+                "id": m.id,
+                "name": m.name,
+                "plc_ip": m.plc_ip,
+                "plc_timeout_ms": m.plc_timeout_ms,
+                "plc_heartbeat_interval_ms": m.plc_heartbeat_interval_ms,
+                "funnels": [],
+            }
+            for f in m.funnels:
+                funnel_dict = {
+                    "id": f.id,
+                    "name": f.name,
+                    "camera_ip": f.camera_ip,
+                    "pixel_format": f.pixel_format,
+                    "camera_timeout_ms": f.camera_timeout_ms,
+                    "grid_count": f.grid_count,
+                    "grid_config_path": f.grid_config_path,
+                    "capture_cycle_s": f.capture_cycle_s,
+                    "capture_window_s": f.capture_window_s,
+                    "capture_delay_s": f.capture_delay_s,
+                    "capture_vote_threshold": f.capture_vote_threshold,
+                }
+                machine_dict["funnels"].append(funnel_dict)
+            data["machines"].append(machine_dict)
+
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    def add_machine(self, machine: MachineConfig):
+        """添加翻车机配置"""
+        if self.get_machine(machine.id):
+            raise ValueError(f"翻车机 {machine.id} 已存在")
+        self.machines.append(machine)
+
+    def remove_machine(self, machine_id: str) -> bool:
+        """移除翻车机配置"""
+        for i, m in enumerate(self.machines):
+            if m.id == machine_id:
+                self.machines.pop(i)
+                return True
+        return False
+
+    def add_funnel(self, machine_id: str, funnel: FunnelConfig):
+        """添加漏斗到指定翻车机"""
+        m = self.get_machine(machine_id)
+        if not m:
+            raise ValueError(f"翻车机 {machine_id} 不存在")
+        if any(f.id == funnel.id for f in m.funnels):
+            raise ValueError(f"漏斗 {funnel.id} 已存在于 {machine_id}")
+        m.funnels.append(funnel)
+
+    def remove_funnel(self, machine_id: str, funnel_id: str) -> bool:
+        """从指定翻车机移除漏斗"""
+        m = self.get_machine(machine_id)
+        if not m:
+            return False
+        for i, f in enumerate(m.funnels):
+            if f.id == funnel_id:
+                m.funnels.pop(i)
+                return True
+        return False
 
 
 def build_funnel_config(

@@ -155,24 +155,47 @@ async def run_websocket_stream(
             try:
                 frame = state.camera.grab()
             except Exception as e:
-                logger.error(f"{app_tag} 采集失败: {e}")
-                await asyncio.sleep(1)
+                # 限制错误日志频率：每30秒最多打印一次
+                now = asyncio.get_event_loop().time()
+                last_err = getattr(state, '_last_grab_err_log', 0)
+                if now - last_err > 30:
+                    logger.error(f"{app_tag} 采集失败: {e}")
+                    state._last_grab_err_log = now
+                await asyncio.sleep(3)
                 continue
 
             result = detect_frame(frame, frame_id)
             on_result(result)
 
-            if build_history_entry is not None:
-                history_entry = build_history_entry(result, frame_id)
-                if history_entry is not None:
-                    append_bounded(state.detection_history, history_entry, max_items=100)
+            if result is not None:
+                # 正常检测帧（在采集窗口内）
+                if build_history_entry is not None:
+                    history_entry = build_history_entry(result, frame_id)
+                    if history_entry is not None:
+                        append_bounded(state.detection_history, history_entry, max_items=100)
 
-            vis_frame = render_frame(frame, result)
-            image_base64 = encode_frame_jpeg_base64(vis_frame, quality=jpeg_quality)
+                vis_frame = render_frame(frame, result)
+                image_base64 = encode_frame_jpeg_base64(vis_frame, quality=jpeg_quality)
+                await websocket.send_json(build_response_data(result, image_base64))
+                frame_id += 1
+            else:
+                # 窗口外：只推送原始画面（低频），不做检测
+                image_base64 = encode_frame_jpeg_base64(frame, quality=60)
+                # 获取采集窗口状态
+                cap_status = {}
+                cc = getattr(state, 'capture_controller', None)
+                if cc:
+                    cap_status = {
+                        "capture_phase": cc.phase.value,
+                        "capture_phase_display": cc.phase_display,
+                        "time_to_next": round(cc.time_to_next_window, 1),
+                    }
+                await websocket.send_json({
+                    "image": image_base64,
+                    "idle": True,
+                    **cap_status,
+                })
 
-            await websocket.send_json(build_response_data(result, image_base64))
-
-            frame_id += 1
             await asyncio.sleep(state.config.frame_interval)
 
     except WebSocketDisconnect:

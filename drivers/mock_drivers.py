@@ -284,6 +284,16 @@ class MockPLC:
         """检查连接状态"""
         return self.is_connected
     
+    def set_vision_enable(self, enabled: bool) -> bool:
+        """设置视觉采集启用/停用"""
+        self.write("Vision_Enable", enabled)
+        if not enabled:
+            self.write("Vision_CanTip", True)
+            self.write("Vision_FaultCode", 0)
+            self.write("Vision_ResultValid", True)
+        logger.info(f"[MockPLC] Vision_Enable = {enabled}")
+        return True
+
     def close(self):
         """关闭连接"""
         logger.info(f"[MockPLC] 关闭，共写入 {self.write_count} 次")

@@ -13,15 +13,17 @@
 依赖：
 - pycomm3: pip install pycomm3
 
-点位表（5 个标签，最小化通信量）：
+点位表（6 个标签）：
 - Vision_CanTip:      BOOL - 可翻转（无积煤=True, 有积煤=False）
 - Vision_FaultCode:   DINT - 故障码（0=正常, 1=相机故障, 2=PLC通信, 3=画质问题, 4=低置信度需人工）
 - Vision_ResultValid: BOOL - 结果可信（高/中置信度=True, 低置信度=False）
 - IPC_Heartbeat:      DINT - 心跳递增值（500ms 周期）
 - IPC_Online:         BOOL - 视觉系统在线
+- Vision_Enable:      BOOL - 视觉采集启用（True=采集中, False=停用，PLC侧Allow_Tip强制=1）
 """
 
 import time
+import threading
 import socket
 from typing import Optional, Dict, Any
 from loguru import logger
@@ -63,6 +65,18 @@ class AllenBradleyPLC:
         self.last_heartbeat_time = time.time()
         self.heartbeat_value = 0
 
+        # 重连管理
+        self._reconnect_lock = threading.Lock()
+        self._reconnect_interval = 5.0  # 重连间隔（秒）
+        self._max_reconnect_interval = 60.0  # 最大重连间隔
+        self._current_reconnect_interval = self._reconnect_interval
+        self._consecutive_failures = 0
+        self._max_consecutive_failures = 3  # 连续失败次数后标记断连
+
+        # 心跳后台线程
+        self._heartbeat_thread: Optional[threading.Thread] = None
+        self._heartbeat_stop_event = threading.Event()
+
         # 检查依赖
         if not PYCOMM3_AVAILABLE:
             logger.error("[AllenBradleyPLC] pycomm3 未安装，请运行: pip install pycomm3")
@@ -92,10 +106,15 @@ class AllenBradleyPLC:
             if result:
                 self.is_connected = True
                 self.connection_start_time = time.time()
+                self._consecutive_failures = 0
+                self._current_reconnect_interval = self._reconnect_interval
                 logger.info(f"[AllenBradleyPLC] 连接成功")
 
                 # 写入系统在线信号
                 self.write("IPC_Online", True)
+
+                # 启动心跳后台线程
+                self._start_heartbeat_thread()
 
                 return True
             else:
@@ -160,9 +179,11 @@ class AllenBradleyPLC:
             logger.error(f"[AllenBradleyPLC] 写入异常 {tag}: {error_msg}")
             self.last_error = error_msg
 
-            # 网络错误时标记断连
+            # 网络错误时累计失败计数
             if "timeout" in error_msg.lower() or "socket" in error_msg.lower():
-                self.is_connected = False
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= self._max_consecutive_failures:
+                    self.is_connected = False
 
             return False
 
@@ -288,6 +309,26 @@ class AllenBradleyPLC:
         else:
             logger.error("[AllenBradleyPLC] 检测结果发送失败")
 
+    def set_vision_enable(self, enabled: bool) -> bool:
+        """
+        设置视觉采集启用/停用
+
+        停用时 PLC 梯形图中 Vision_Enable=0 → Allow_Tip 强制=1（允许翻车）
+        启用时恢复正常检测逻辑
+
+        Args:
+            enabled: True=启用采集, False=停用采集
+        """
+        success = self.write("Vision_Enable", enabled)
+        if success:
+            if not enabled:
+                # 停用时：强制可翻转 + 清除故障码 + 结果有效
+                self.write("Vision_CanTip", True)
+                self.write("Vision_FaultCode", 0)
+                self.write("Vision_ResultValid", True)
+            logger.info(f"[AllenBradleyPLC] Vision_Enable = {enabled}")
+        return success
+
     def check_connection(self) -> bool:
         """
         检查连接状态
@@ -316,24 +357,121 @@ class AllenBradleyPLC:
 
     def reconnect(self) -> bool:
         """
-        重新连接 PLC
+        重新连接 PLC（线程安全，带指数退避）
 
         Returns:
             是否重连成功
         """
-        logger.info("[AllenBradleyPLC] 尝试重新连接...")
+        with self._reconnect_lock:
+            logger.info(f"[AllenBradleyPLC] 尝试重新连接（间隔 {self._current_reconnect_interval:.0f}s）...")
 
-        # 先关闭现有连接
-        self.close()
+            # 先停止心跳线程
+            self._stop_heartbeat_thread()
 
-        # 等待一下
-        time.sleep(2.0)
+            # 先关闭现有连接
+            self._close_plc_connection()
 
-        # 重新连接
-        return self.connect()
+            # 等待（指数退避）
+            time.sleep(min(self._current_reconnect_interval, 2.0))
+
+            # 重新连接
+            success = self.connect()
+
+            if success:
+                self._current_reconnect_interval = self._reconnect_interval
+                logger.info("[AllenBradleyPLC] 重连成功")
+            else:
+                # 指数退避
+                self._current_reconnect_interval = min(
+                    self._current_reconnect_interval * 1.5,
+                    self._max_reconnect_interval
+                )
+                logger.warning(
+                    f"[AllenBradleyPLC] 重连失败，下次间隔 {self._current_reconnect_interval:.0f}s"
+                )
+
+            return success
+
+    def _start_heartbeat_thread(self):
+        """启动心跳后台线程（独立于检测周期）"""
+        self._stop_heartbeat_thread()
+        self._heartbeat_stop_event.clear()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop, daemon=True, name="plc-heartbeat"
+        )
+        self._heartbeat_thread.start()
+        logger.debug("[AllenBradleyPLC] 心跳线程已启动")
+
+    def _stop_heartbeat_thread(self):
+        """停止心跳后台线程"""
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            self._heartbeat_stop_event.set()
+            self._heartbeat_thread.join(timeout=3.0)
+            self._heartbeat_thread = None
+
+    def _heartbeat_loop(self):
+        """
+        心跳后台循环
+
+        独立线程保证 500ms 间隔心跳，不受检测周期影响。
+        连续失败超过阈值时触发自动重连。
+        """
+        interval_s = self.heartbeat_interval / 1000.0
+        while not self._heartbeat_stop_event.is_set():
+            if self.is_connected:
+                self.heartbeat_value = (self.heartbeat_value + 1) % 65536
+                try:
+                    result = self.plc.write("IPC_Heartbeat", self.heartbeat_value)
+                    if result.error:
+                        self._consecutive_failures += 1
+                        logger.debug(f"[AllenBradleyPLC] 心跳写入失败: {result.error}")
+                    else:
+                        self._consecutive_failures = 0
+                        self.heartbeat_count += 1
+                        self.write_count += 1
+                        self.last_heartbeat_time = time.time()
+                except Exception as e:
+                    self._consecutive_failures += 1
+                    logger.debug(f"[AllenBradleyPLC] 心跳异常: {e}")
+
+                # 连续失败 → 标记断连，触发重连
+                if self._consecutive_failures >= self._max_consecutive_failures:
+                    logger.warning(
+                        f"[AllenBradleyPLC] 连续 {self._consecutive_failures} 次心跳失败，标记断连"
+                    )
+                    self.is_connected = False
+                    self._consecutive_failures = 0
+                    # 尝试自动重连（在心跳线程中）
+                    self._heartbeat_stop_event.wait(self._current_reconnect_interval)
+                    if not self._heartbeat_stop_event.is_set():
+                        self.reconnect()
+                    continue
+
+            else:
+                # 断连状态，等待重连间隔后尝试
+                self._heartbeat_stop_event.wait(self._current_reconnect_interval)
+                if not self._heartbeat_stop_event.is_set():
+                    self.reconnect()
+                continue
+
+            self._heartbeat_stop_event.wait(interval_s)
+
+        logger.debug("[AllenBradleyPLC] 心跳线程已退出")
+
+    def _close_plc_connection(self):
+        """内部：仅关闭 PLC 网络连接，不发送离线信号"""
+        try:
+            if self.plc:
+                self.plc.close()
+        except Exception:
+            pass
+        self.is_connected = False
 
     def close(self):
         """关闭 PLC 连接"""
+        # 先停心跳线程
+        self._stop_heartbeat_thread()
+
         try:
             if self.plc and self.is_connected:
                 # 发送系统离线信号

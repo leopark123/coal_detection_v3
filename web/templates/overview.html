@@ -4,236 +4,231 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>翻车机积煤检测系统</title>
+    <link rel="stylesheet" href="/static/css/theme.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0a0a1a;
-            color: #e0e0e0;
-            min-height: 100vh;
-        }
-
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 16px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #2a2a4a;
-        }
-        .header h1 { font-size: 20px; font-weight: 600; }
-        .conn-status {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 13px; color: #888;
-        }
-        .conn-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: #555;
-        }
-        .conn-dot.connected { background: #2ecc71; }
-        .conn-dot.disconnected { background: #e74c3c; }
-
-        /* Main */
-        .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
-
-        /* Machine Grid */
         .machine-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
             gap: 20px;
+            padding: 24px;
+            max-width: 1500px;
+            margin: 0 auto;
         }
-
-        /* Machine Card */
         .machine-card {
-            background: #1a1a2e;
-            border: 1px solid #2a2a4a;
-            border-radius: 12px;
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             overflow: hidden;
             cursor: pointer;
-            transition: border-color 0.2s, transform 0.2s;
+            transition: all var(--transition);
+            box-shadow: var(--shadow);
         }
         .machine-card:hover {
-            border-color: #4a9eff;
-            transform: translateY(-2px);
+            border-color: var(--border-hover);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
         }
-        .machine-card.alert-CRITICAL { border-left: 4px solid #e74c3c; }
-        .machine-card.alert-WARNING { border-left: 4px solid #e67e22; }
-        .machine-card.alert-ATTENTION { border-left: 4px solid #f39c12; }
-        .machine-card.alert-NORMAL { border-left: 4px solid #2ecc71; }
+        .machine-card.alert-CRITICAL { border-left: 3px solid var(--danger); }
+        .machine-card.alert-WARNING { border-left: 3px solid var(--orange); }
+        .machine-card.alert-ATTENTION { border-left: 3px solid var(--warning); }
+        .machine-card.alert-NORMAL { border-left: 3px solid var(--success); }
 
         .machine-header {
-            padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #2a2a4a;
+            padding: 16px 18px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border);
         }
-        .machine-name { font-size: 18px; font-weight: 600; }
-        .plc-status {
-            display: flex; align-items: center; gap: 6px;
-            font-size: 12px; color: #888;
-        }
-        .plc-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-        }
-        .plc-dot.online { background: #2ecc71; }
-        .plc-dot.offline { background: #e74c3c; }
+        .machine-name { font-size: 16px; font-weight: 600; }
 
-        .alert-badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .alert-NORMAL { background: #1a3a1a; color: #2ecc71; }
-        .alert-ATTENTION { background: #3a3a1a; color: #f39c12; }
-        .alert-WARNING { background: #3a2a1a; color: #e67e22; }
-        .alert-CRITICAL { background: #3a1a1a; color: #e74c3c; }
-        .alert-UNKNOWN { background: #2a2a2a; color: #888; }
-
-        /* Funnel Grid inside machine card */
         .funnel-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 10px;
-            padding: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 8px; padding: 14px 18px;
         }
         .funnel-cell {
-            background: #12122a;
-            border: 1px solid #2a2a4a;
-            border-radius: 8px;
-            padding: 12px;
+            background: rgba(8, 8, 20, 0.5);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 8px;
             text-align: center;
-            transition: border-color 0.2s;
+            transition: all var(--transition);
         }
-        .funnel-cell.alert-CRITICAL { border-color: #e74c3c; }
-        .funnel-cell.alert-WARNING { border-color: #e67e22; }
-        .funnel-cell.alert-ATTENTION { border-color: #f39c12; }
-        .funnel-cell.alert-NORMAL { border-color: #2ecc71; }
+        .funnel-cell.alert-NORMAL { border-color: rgba(46, 204, 113, 0.3); }
+        .funnel-cell.alert-CRITICAL { border-color: rgba(231, 76, 60, 0.4); background: var(--danger-bg); }
+        .funnel-cell.alert-WARNING { border-color: rgba(230, 126, 34, 0.4); }
+        .funnel-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+        .funnel-stat { font-size: 10px; color: var(--text-muted); }
+        .funnel-stat .value { color: var(--text-secondary); font-weight: 600; }
 
-        .funnel-name { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-        .funnel-stat { font-size: 11px; color: #888; }
-        .funnel-stat .value { color: #ccc; font-weight: 600; }
-
-        /* Footer stats */
         .machine-footer {
-            padding: 10px 16px;
-            border-top: 1px solid #2a2a4a;
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #666;
+            padding: 10px 18px;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; color: var(--text-muted);
         }
+        .btn-vision {
+            padding: 4px 12px; border-radius: 14px; font-size: 11px; font-weight: 600;
+            border: 1px solid; cursor: pointer; transition: all var(--transition);
+            letter-spacing: 0.3px;
+        }
+        .btn-vision-on {
+            background: var(--success-bg); color: var(--success); border-color: rgba(46,204,113,0.3);
+        }
+        .btn-vision-on:hover { background: rgba(46,204,113,0.2); }
+        .btn-vision-off {
+            background: rgba(85,90,110,0.15); color: var(--text-muted); border-color: rgba(85,90,110,0.3);
+        }
+        .btn-vision-off:hover { background: rgba(85,90,110,0.25); }
 
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #555;
+        /* Summary bar */
+        .summary-bar {
+            display: flex; gap: 24px; padding: 16px 24px;
+            max-width: 1500px; margin: 0 auto;
         }
-        .empty-state h2 { font-size: 18px; margin-bottom: 8px; }
+        .summary-item {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .summary-num { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+
+        .empty-state { text-align: center; padding: 80px 20px; color: var(--text-muted); }
+        .empty-state h2 { font-size: 16px; margin-bottom: 6px; color: var(--text-secondary); }
 
         @media (max-width: 500px) {
-            .machine-grid { grid-template-columns: 1fr; }
-            .funnel-grid { grid-template-columns: repeat(2, 1fr); }
+            .machine-grid { grid-template-columns: 1fr; padding: 12px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>翻车机积煤检测系统</h1>
-        <div class="conn-status">
-            <div class="conn-dot" id="ws-dot"></div>
-            <span id="ws-text">连接中...</span>
+        <div class="header-left">
+            <h1>翻车机积煤检测系统</h1>
+        </div>
+        <div class="header-right">
+            <span id="clock" style="font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;"></span>
+            <div class="conn-status">
+                <div class="conn-dot" id="ws-dot"></div>
+                <span id="ws-text">连接中...</span>
+            </div>
+            <a href="/settings" class="nav-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                设置
+            </a>
         </div>
     </div>
 
-    <div class="main">
-        <div class="machine-grid" id="machine-grid">
-            <div class="empty-state">
-                <h2>等待数据...</h2>
-                <p>正在连接服务器</p>
-            </div>
+    <div class="summary-bar" id="summary-bar"></div>
+
+    <div class="machine-grid" id="machine-grid">
+        <div class="empty-state">
+            <h2>等待连接...</h2>
+            <p>正在连接服务器</p>
         </div>
     </div>
 
     <script src="/static/js/ws-reconnect.js"></script>
     <script>
         const machineGrid = document.getElementById('machine-grid');
+        const summaryBar = document.getElementById('summary-bar');
         const wsDot = document.getElementById('ws-dot');
         const wsText = document.getElementById('ws-text');
 
+        const alertMap = { 'NORMAL': '正常', 'ATTENTION': '关注', 'WARNING': '警告', 'CRITICAL': '紧急', 'UNKNOWN': '未知' };
+
+        function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
         function renderMachines(machines) {
             if (!machines || machines.length === 0) {
-                machineGrid.innerHTML = '<div class="empty-state"><h2>无翻车机配置</h2><p>请在 config/devices.yaml 中添加翻车机</p></div>';
+                machineGrid.innerHTML = '<div class="empty-state"><h2>无翻车机配置</h2><p>前往 <a href="/settings" style="color:var(--accent)">系统设置</a> 添加翻车机</p></div>';
+                summaryBar.innerHTML = '';
                 return;
             }
 
-            machineGrid.innerHTML = machines.map(function(m) {
-                const alertClass = 'alert-' + (m.alert_level || 'UNKNOWN');
-                const plcClass = m.plc_connected ? 'online' : 'offline';
-                const plcText = m.plc_connected ? 'PLC 在线' : 'PLC 离线';
+            // Summary
+            const totalMachines = machines.length;
+            const totalFunnels = machines.reduce(function(s, m) { return s + m.funnel_count; }, 0);
+            const totalDetections = machines.reduce(function(s, m) { return s + m.funnels.reduce(function(s2, f) { return s2 + f.detection_count; }, 0); }, 0);
+            const alarms = machines.filter(function(m) { return m.alert_level === 'CRITICAL' || m.alert_level === 'WARNING'; }).length;
 
-                const funnelsHtml = m.funnels.map(function(f) {
-                    const fAlertClass = 'alert-' + (f.alert_level || 'UNKNOWN');
-                    const coalInfo = f.total_grids > 0
-                        ? f.coal_grids + '/' + f.total_grids
-                        : '--';
-                    return '<div class="funnel-cell ' + fAlertClass + '">'
-                        + '<div class="funnel-name">' + escapeHtml(f.name) + '</div>'
-                        + '<div class="funnel-stat">积煤: <span class="value">' + coalInfo + '</span></div>'
-                        + '<div class="funnel-stat">检测: <span class="value">' + f.detection_count + '</span></div>'
+            summaryBar.innerHTML =
+                '<div class="summary-item"><span class="summary-num">' + totalMachines + '</span>翻车机</div>'
+                + '<div class="summary-item"><span class="summary-num">' + totalFunnels + '</span>漏斗</div>'
+                + '<div class="summary-item"><span class="summary-num">' + totalDetections.toLocaleString() + '</span>检测帧</div>'
+                + (alarms > 0 ? '<div class="summary-item"><span class="summary-num" style="color:var(--danger)">' + alarms + '</span>报警</div>' : '');
+
+            // Cards (with staggered animation)
+            machineGrid.innerHTML = machines.map(function(m, idx) {
+                const ac = 'alert-' + (m.alert_level || 'UNKNOWN');
+                const pc = m.plc_connected ? 'online' : 'offline';
+                const pulseClass = (m.alert_level === 'CRITICAL') ? ' alert-pulse' : '';
+
+                var phaseMap = {'idle':'空闲','delay':'延时','capturing':'采集中','judging':'判定'};
+                const fhtml = m.funnels.map(function(f) {
+                    const fac = 'alert-' + (f.alert_level || 'UNKNOWN');
+                    const ci = f.total_grids > 0 ? f.coal_grids + '/' + f.total_grids : '--';
+                    const cp = f.capture_phase || 'idle';
+                    const cpText = phaseMap[cp] || cp;
+                    const cpStyle = cp === 'capturing' ? 'color:var(--accent);font-weight:600' : '';
+                    return '<div class="funnel-cell ' + fac + '">'
+                        + '<div class="funnel-name">' + esc(f.name) + '</div>'
+                        + '<div class="funnel-stat">积煤 <span class="value">' + ci + '</span></div>'
+                        + '<div class="funnel-stat">帧数 <span class="value">' + f.detection_count + '</span></div>'
+                        + '<div class="funnel-stat" style="' + cpStyle + '">' + cpText + '</div>'
                         + '</div>';
                 }).join('');
 
-                const totalDetections = m.funnels.reduce(function(s, f) { return s + f.detection_count; }, 0);
-                const totalCoal = m.funnels.reduce(function(s, f) { return s + f.coal_detections; }, 0);
+                const td = m.funnels.reduce(function(s, f) { return s + f.detection_count; }, 0);
+                const tc = m.funnels.reduce(function(s, f) { return s + f.coal_detections; }, 0);
 
-                return '<div class="machine-card ' + alertClass + '" onclick="location.href=\'/machine/' + m.id + '\'">'
-                    + '<div class="machine-header">'
-                    + '<span class="machine-name">' + escapeHtml(m.name) + '</span>'
+                const ve = m.vision_enabled !== false;
+                const vBtnClass = ve ? 'btn-vision-on' : 'btn-vision-off';
+                const vBtnText = ve ? '采集中' : '已停用';
+                const vBtnIcon = ve ? '●' : '○';
+
+                return '<div class="machine-card ' + ac + pulseClass + ' animate-in" style="animation-delay:' + (idx * 0.08) + 's">'
+                    + '<div class="machine-header" onclick="location.href=\'/machine/' + m.id + '\'">'
+                    + '<span class="machine-name">' + esc(m.name) + '</span>'
                     + '<div style="display:flex;align-items:center;gap:10px;">'
-                    + '<span class="alert-badge ' + alertClass + '">' + alertText(m.alert_level) + '</span>'
-                    + '<div class="plc-status"><div class="plc-dot ' + plcClass + '"></div>' + plcText + '</div>'
+                    + '<span class="alert-badge ' + ac + '">' + (alertMap[m.alert_level] || m.alert_level) + '</span>'
+                    + '<div class="plc-status"><div class="plc-dot ' + pc + '"></div>' + (m.plc_connected ? 'PLC' : 'PLC 离线') + '</div>'
                     + '</div></div>'
-                    + '<div class="funnel-grid">' + funnelsHtml + '</div>'
+                    + '<div class="funnel-grid" onclick="location.href=\'/machine/' + m.id + '\'">' + fhtml + '</div>'
                     + '<div class="machine-footer">'
-                    + '<span>' + m.funnel_count + ' 个漏斗</span>'
-                    + '<span>检测 ' + totalDetections + ' 帧 / 报警 ' + totalCoal + ' 次</span>'
+                    + '<span>' + m.funnel_count + ' 漏斗 · ' + td.toLocaleString() + ' 帧 / ' + tc + ' 报警</span>'
+                    + '<button class="btn-vision ' + vBtnClass + '" onclick="event.stopPropagation();toggleVision(\'' + m.id + '\',' + ve + ')">'
+                    + vBtnIcon + ' ' + vBtnText + '</button>'
                     + '</div></div>';
             }).join('');
         }
 
-        function alertText(level) {
-            var map = {
-                'NORMAL': '正常', 'ATTENTION': '关注',
-                'WARNING': '警告', 'CRITICAL': '紧急', 'UNKNOWN': '未知'
-            };
-            return map[level] || level;
+        // Vision enable/disable toggle
+        function toggleVision(machineId, currentState) {
+            const action = currentState ? 'disable' : 'enable';
+            const label = currentState ? '停用' : '启用';
+            if (!confirm('确认' + label + '该翻车机的视觉采集？\n\n停用后 PLC 侧 Allow_Tip 将强制为 1（允许翻车）')) return;
+            fetch('/api/machine/' + machineId + '/vision/' + action, { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.error) { alert('操作失败: ' + d.error); }
+                })
+                .catch(function(e) { alert('请求失败: ' + e); });
         }
 
-        function escapeHtml(text) {
-            var div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // Real-time clock
+        setInterval(function() {
+            const now = new Date();
+            document.getElementById('clock').textContent =
+                now.toLocaleDateString('zh-CN') + ' ' +
+                now.toLocaleTimeString('zh-CN', {hour12: false});
+        }, 1000);
 
         createReconnectingWS(
             'ws://' + location.host + '/ws/overview',
-            function(data) {
-                renderMachines(data.machines);
-            },
+            function(data) { renderMachines(data.machines); },
             {
-                onOpen: function() {
-                    wsDot.className = 'conn-dot connected';
-                    wsText.textContent = '已连接';
-                },
-                onClose: function() {
-                    wsDot.className = 'conn-dot disconnected';
-                    wsText.textContent = '已断开，重连中...';
-                }
+                onOpen: function() { wsDot.className = 'conn-dot connected'; wsText.textContent = '已连接'; },
+                onClose: function() { wsDot.className = 'conn-dot disconnected'; wsText.textContent = '重连中...'; }
             }
         );
     </script>

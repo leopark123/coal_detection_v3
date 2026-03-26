@@ -71,6 +71,13 @@ class BaslerCamera:
         self.total_frames = 0
         self.dropped_frames = 0
 
+        # 重连管理
+        self._reconnect_interval = 3.0
+        self._max_reconnect_interval = 30.0
+        self._current_reconnect_interval = self._reconnect_interval
+        self._consecutive_grab_failures = 0
+        self._max_grab_failures = 5
+
         # 初始化格式转换器（预创建，复用）
         self.converter = pylon.ImageFormatConverter()
         if self.is_mono:
@@ -133,6 +140,8 @@ class BaslerCamera:
 
             self.is_connected = True
             self.grab_start_time = time.time()
+            self._consecutive_grab_failures = 0
+            self._current_reconnect_interval = self._reconnect_interval
             logger.info(
                 f"[BaslerCamera] 连接成功 - {target_device.GetModelName()}, "
                 f"SN={target_device.GetSerialNumber()}"
@@ -237,22 +246,45 @@ class BaslerCamera:
 
             self.frame_count += 1
             self.total_frames += 1
+            self._consecutive_grab_failures = 0
             return frame
 
         except pylon.TimeoutException:
             self.dropped_frames += 1
+            self._consecutive_grab_failures += 1
+            if self._consecutive_grab_failures >= self._max_grab_failures:
+                logger.warning(f"[BaslerCamera] 连续 {self._consecutive_grab_failures} 次超时，尝试重连")
+                self.is_connected = False
+                self._auto_reconnect()
             raise ConnectionError("Camera grab timeout")
 
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"[BaslerCamera] 采集失败: {error_msg}")
+            self._consecutive_grab_failures += 1
+            logger.error(f"[BaslerCamera] 采集失败 ({self._consecutive_grab_failures}/{self._max_grab_failures}): {error_msg}")
             self.last_error = error_msg
 
-            if "timeout" in error_msg.lower() or "connection" in error_msg.lower():
+            if self._consecutive_grab_failures >= self._max_grab_failures:
                 self.is_connected = False
-                raise ConnectionError(f"Camera grab failed: {error_msg}")
+                self._auto_reconnect()
 
-            raise
+            raise ConnectionError(f"Camera grab failed: {error_msg}")
+
+    def _auto_reconnect(self):
+        """自动重连（带指数退避）"""
+        logger.info(f"[BaslerCamera] 自动重连（等待 {self._current_reconnect_interval:.0f}s）...")
+        self.release()
+        time.sleep(self._current_reconnect_interval)
+        success = self.connect()
+        if success:
+            self._current_reconnect_interval = self._reconnect_interval
+            logger.info("[BaslerCamera] 自动重连成功")
+        else:
+            self._current_reconnect_interval = min(
+                self._current_reconnect_interval * 1.5,
+                self._max_reconnect_interval
+            )
+            logger.warning(f"[BaslerCamera] 自动重连失败，下次间隔 {self._current_reconnect_interval:.0f}s")
 
     def reconnect(self) -> bool:
         """

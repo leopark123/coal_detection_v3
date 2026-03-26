@@ -31,6 +31,7 @@ from web.common import (
     encode_frame_jpeg_base64,
 )
 from web.state_manager import StateManager
+from web.admin_api import create_admin_router
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -68,7 +69,7 @@ async def lifespan(app: FastAPI):
     )
 
     # 初始化所有硬件
-    state_manager.initialize(devices_config, base_config)
+    state_manager.initialize(devices_config, base_config, yaml_path=yaml_path)
 
     yield
 
@@ -83,6 +84,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="翻车机积煤检测系统", lifespan=lifespan)
 templates = mount_static_and_templates(app)
 
+# 挂载管理员 API
+app.include_router(create_admin_router(state_manager))
+
 
 # ═══════════════════════════════════════════════════════════════
 # 页面路由
@@ -91,6 +95,12 @@ templates = mount_static_and_templates(app)
 async def overview_page(request: Request):
     """总览页"""
     return templates.TemplateResponse("overview.html", {"request": request})
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """管理员设置页"""
+    return templates.TemplateResponse("settings.html", {"request": request})
 
 
 @app.get("/machine/{machine_id}", response_class=HTMLResponse)
@@ -165,13 +175,32 @@ async def funnel_ws(websocket: WebSocket, machine_id: str, funnel_id: str):
     app_tag = f"[{machine_id}/{funnel_id}]"
 
     def _detect_frame(frame, frame_id):
+        # 驱动窗口状态机
+        cc = fs.capture_controller
+        if cc:
+            cc.tick()
+            if not cc.should_capture():
+                # 不在采集窗口内，返回 None 跳过检测
+                return None
         return fs.detector.detect_device(frame, frame_id)
 
     def _on_result(result):
+        if result is None:
+            return  # 窗口外跳过
         fs.detection_count += 1
         if getattr(result, "device_has_coal", False):
             fs.coal_detections += 1
         fs.last_result = result
+
+        # 喂入窗口控制器
+        cc = fs.capture_controller
+        if cc and cc.should_capture():
+            cc.feed_result({
+                "has_coal": getattr(result, "device_has_coal", False),
+                "coal_grids": getattr(result, "coal_grids", 0),
+                "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
+                "fault_code": getattr(result, "fault_code", 0),
+            })
 
     def _build_history(result, frame_id):
         return {
@@ -286,6 +315,65 @@ async def api_funnel_history(machine_id: str, funnel_id: str):
         "total_records": len(fs.detection_history),
         "history": fs.detection_history[-50:],
     }
+
+
+@app.post("/api/machine/{machine_id}/vision/enable")
+async def api_vision_enable(machine_id: str):
+    """启用视觉采集"""
+    try:
+        result = state_manager.set_vision_enabled(machine_id, True)
+        return result
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+
+
+@app.post("/api/machine/{machine_id}/vision/disable")
+async def api_vision_disable(machine_id: str):
+    """停用视觉采集（PLC 侧 Allow_Tip 强制=1）"""
+    try:
+        result = state_manager.set_vision_enabled(machine_id, False)
+        return result
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+
+
+@app.get("/api/machine/{machine_id}/vision/status")
+async def api_vision_status(machine_id: str):
+    """获取视觉采集状态"""
+    ms = state_manager.get_machine_state(machine_id)
+    if not ms:
+        return JSONResponse({"error": "翻车机不存在"}, status_code=404)
+    return {
+        "machine_id": machine_id,
+        "vision_enabled": state_manager.get_vision_enabled(machine_id),
+    }
+
+
+@app.get("/api/machine/{machine_id}/funnel/{funnel_id}/capture_status")
+async def api_capture_status(machine_id: str, funnel_id: str):
+    """获取漏斗的窗口采集状态"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return JSONResponse({"error": "漏斗不存在"}, status_code=404)
+    if not fs.capture_controller:
+        return {"error": "窗口采集未初始化"}
+    return fs.capture_controller.get_status()
+
+
+@app.post("/api/machine/{machine_id}/funnel/{funnel_id}/capture_config")
+async def api_update_capture_config(request: Request, machine_id: str, funnel_id: str):
+    """更新漏斗的窗口采集参数"""
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs:
+        return JSONResponse({"error": "漏斗不存在"}, status_code=404)
+    if not fs.capture_controller:
+        return JSONResponse({"error": "窗口采集未初始化"}, status_code=400)
+
+    body = await request.json()
+    allowed = {"cycle_interval_s", "window_duration_s", "pre_delay_s", "vote_threshold"}
+    params = {k: float(v) for k, v in body.items() if k in allowed}
+    fs.capture_controller.update_config(**params)
+    return {"status": "ok", "updated": params}
 
 
 @app.post("/api/machine/{machine_id}/funnel/{funnel_id}/reset_stats")
