@@ -33,6 +33,9 @@ from web.common import (
 from web.state_manager import StateManager
 from web.admin_api import create_admin_router
 
+# 确保 loguru 输出到 stderr（uvicorn 可见）
+logger.remove()
+logger.add(sys.stderr, level="DEBUG")
 
 # ═══════════════════════════════════════════════════════════════
 # 全局状态
@@ -175,13 +178,18 @@ async def funnel_ws(websocket: WebSocket, machine_id: str, funnel_id: str):
     app_tag = f"[{machine_id}/{funnel_id}]"
 
     def _detect_frame(frame, frame_id):
-        # 驱动窗口状态机
+        # 视觉停用时不检测
+        if not fs.vision_enabled:
+            return None
+        # 驱动窗口状态机，必须由 PLC 触发才采集
         cc = fs.capture_controller
         if cc:
             cc.tick()
             if not cc.should_capture():
-                # 不在采集窗口内，返回 None 跳过检测
                 return None
+        else:
+            # 没有采集控制器 = 不采集
+            return None
         return fs.detector.detect_device(frame, frame_id)
 
     def _on_result(result):

@@ -140,23 +140,23 @@ async def run_websocket_stream(
     camera = getattr(state, "camera", None)
     detector = getattr(state, "detector", None)
     config = getattr(state, "config", None)
-    if not (state.is_running and camera and detector and config):
-        logger.warning(f"{app_tag} WebSocket启动条件不满足，已跳过推流")
+    if not (camera and detector and config):
+        logger.warning(f"{app_tag} WebSocket启动条件不满足(camera/detector/config缺失)，已跳过推流")
         return
 
+    loop = asyncio.get_event_loop()
     frame_id = 0
     try:
         while (
-            state.is_running
-            and getattr(state, "camera", None)
+            getattr(state, "camera", None)
             and getattr(state, "detector", None)
             and getattr(state, "config", None)
         ):
             try:
-                frame = state.camera.grab()
+                # 在线程池中运行同步阻塞的 grab()，避免阻塞 asyncio 事件循环
+                frame = await loop.run_in_executor(None, state.camera.grab)
             except Exception as e:
-                # 限制错误日志频率：每30秒最多打印一次
-                now = asyncio.get_event_loop().time()
+                now = loop.time()
                 last_err = getattr(state, '_last_grab_err_log', 0)
                 if now - last_err > 30:
                     logger.error(f"{app_tag} 采集失败: {e}")
@@ -164,7 +164,8 @@ async def run_websocket_stream(
                 await asyncio.sleep(3)
                 continue
 
-            result = detect_frame(frame, frame_id)
+            # 检测也可能耗时，放到线程池
+            result = await loop.run_in_executor(None, detect_frame, frame, frame_id)
             on_result(result)
 
             if result is not None:
@@ -188,7 +189,7 @@ async def run_websocket_stream(
                     cap_status = {
                         "capture_phase": cc.phase.value,
                         "capture_phase_display": cc.phase_display,
-                        "time_to_next": round(cc.time_to_next_window, 1),
+                        "window_remaining": round(cc.window_remaining, 1),
                     }
                 await websocket.send_json({
                     "image": image_base64,

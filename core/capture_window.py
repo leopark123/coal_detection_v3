@@ -1,21 +1,19 @@
 """
-翻车机积煤检测系统 V3.0 - 窗口采集控制器
+翻车机积煤检测系统 V3.0 - 窗口采集控制器（PLC 触发模式）
 
-采集模式：
-  不是持续采集，而是按周期在固定时间窗口内采集。
+采集时序（由 PLC 控制触发）：
+  1. 翻车机翻转 → 回到原位（PLC 检测 Tipper_InPosition）
+  2. PLC 延时 N 秒（Capture_Delay_Timer，在 PLC 梯形图中配置）
+  3. PLC 写 PLC_CaptureCmd = 1（开始采集指令）
+  4. 服务器读到 Cmd=1 → 写 Vision_CaptureState=1 → 开始连续采集
+  5. 采集 window_duration_s 秒 → 多帧投票判定
+  6. 服务器写结果（Vision_CanTip 等）+ Vision_CaptureState=2（判定完成）
+  7. PLC 读到 State=2 → 写 PLC_CaptureCmd=0 → 复位
+  8. 服务器读到 Cmd=0 → 写 Vision_CaptureState=0 → 回到空闲
 
-时间轴：
-  |--- 空闲期(不采集) ---|--- 采集窗口(连续采集+投票) ---|--- 空闲期 ---|
-  |<-------- cycle_interval_s -------->|
-
-参数（均可通过设置页实时调整）：
-  - cycle_interval_s:  采集周期（秒），两次采集窗口的间隔
-  - window_duration_s: 采集窗口时长（秒），窗口内连续采集
-  - pre_delay_s:       窗口前延时（秒），翻车机回位后等待稳定
-  - vote_threshold:    投票阈值，窗口内超过该比例的帧报警才输出报警
-
-状态机：
-  IDLE → (周期到) → DELAY → (延时结束) → CAPTURING → (窗口结束) → JUDGING → IDLE
+PLC 标签：
+  - PLC_CaptureCmd:      DINT  PLC→服务器（0=空闲, 1=开始采集, 2=取消）
+  - Vision_CaptureState:  DINT  服务器→PLC（0=空闲, 1=采集中, 2=判定完成）
 """
 
 import time
@@ -28,79 +26,90 @@ from loguru import logger
 
 class CapturePhase(str, Enum):
     """采集阶段"""
-    IDLE = "idle"           # 空闲，等待下一个周期
-    DELAY = "delay"         # 延时等待（翻车机稳定）
+    IDLE = "idle"           # 空闲，等待 PLC 指令
     CAPTURING = "capturing" # 采集窗口内，正在采集
     JUDGING = "judging"     # 窗口结束，汇总判定中
+    COMPLETE = "complete"   # 判定完成，等待 PLC 复位
 
 
 @dataclass
 class CaptureWindowConfig:
     """窗口采集配置"""
-    cycle_interval_s: float = 30.0    # 采集周期（秒）
     window_duration_s: float = 3.0    # 采集窗口时长（秒）
-    pre_delay_s: float = 2.0          # 窗口前延时（秒）
     vote_threshold: float = 0.6       # 投票阈值（0-1，超过该比例报警才输出报警）
+    poll_interval_s: float = 0.2      # 轮询 PLC 指令的间隔（秒）
 
-    def validate(self):
-        """校验参数合理性"""
-        if self.cycle_interval_s < self.window_duration_s + self.pre_delay_s:
-            raise ValueError("采集周期必须大于窗口时长+延时")
-        if not 0 < self.vote_threshold <= 1:
-            raise ValueError("投票阈值必须在 (0, 1] 之间")
+    # 兼容旧配置字段（不再使用但保留避免报错）
+    cycle_interval_s: float = 30.0
+    pre_delay_s: float = 2.0
 
 
 @dataclass
 class WindowResult:
     """单次采集窗口的汇总结果"""
-    total_frames: int = 0             # 窗口内总帧数
-    alarm_frames: int = 0             # 报警帧数
-    alarm_ratio: float = 0.0          # 报警比例
-    is_alarm: bool = False            # 最终是否报警
-    confidence: str = "NORMAL"        # 置信度
-    fault_code: int = 0               # 故障码
-    coal_grids_avg: float = 0.0       # 平均积煤格栅数
-    window_start: float = 0.0         # 窗口开始时间
-    window_end: float = 0.0           # 窗口结束时间
-    frame_results: List[Dict] = field(default_factory=list)  # 每帧结果
+    total_frames: int = 0
+    alarm_frames: int = 0
+    alarm_ratio: float = 0.0
+    is_alarm: bool = False
+    confidence: str = "NORMAL"
+    fault_code: int = 0
+    coal_grids_avg: float = 0.0
+    window_start: float = 0.0
+    window_end: float = 0.0
+    frame_results: List[Dict] = field(default_factory=list)
 
 
 class CaptureWindowController:
     """
-    窗口采集控制器
+    窗口采集控制器（PLC 触发模式）
 
-    管理单个漏斗的采集节奏：周期性地打开采集窗口，
-    窗口内连续采集并投票，窗口结束后输出汇总结果。
+    PLC 发出 PLC_CaptureCmd=1 时开始采集，
+    采集 window_duration_s 秒后投票判定，
+    将结果写回 PLC，等待 PLC 复位。
 
     使用方式：
-        controller = CaptureWindowController(config)
+        controller = CaptureWindowController(config, plc=plc)
         controller.start()
 
-        # 在采集循环中检查：
+        # 在采集循环中：
+        controller.tick()
         if controller.should_capture():
             result = detect(frame)
             controller.feed_result(result)
-
-        # 获取最新窗口结果：
-        window_result = controller.last_window_result
     """
 
-    def __init__(self, config: Optional[CaptureWindowConfig] = None):
+    # PLC 标签名
+    TAG_CAPTURE_CMD = "PLC_CaptureCmd"
+    TAG_CAPTURE_STATE = "Vision_CaptureState"
+    TAG_TIPPER_IN_POSITION = "Tipper_InPosition"
+
+    # PLC_CaptureCmd 值
+    CMD_IDLE = 0
+    CMD_START = 1
+    CMD_CANCEL = 2
+
+    # Vision_CaptureState 值
+    STATE_IDLE = 0
+    STATE_CAPTURING = 1
+    STATE_COMPLETE = 2
+
+    def __init__(self, config: Optional[CaptureWindowConfig] = None, plc=None):
         self.config = config or CaptureWindowConfig()
+        self.plc = plc  # PLC 驱动实例（需有 read/write 方法）
         self._phase = CapturePhase.IDLE
-        self._cycle_start_time: float = 0.0
         self._window_start_time: float = 0.0
         self._frame_results: List[Dict] = []
         self._lock = threading.Lock()
+        self._last_poll_time: float = 0.0
 
         # 最近一次窗口的汇总结果
         self.last_window_result: Optional[WindowResult] = None
 
-        # 回调：窗口判定完成后通知外部（如写 PLC）
+        # 回调：窗口判定完成后通知外部
         self.on_window_complete: Optional[Callable[[WindowResult], None]] = None
 
         self._running = False
-        self._started_time: float = 0.0
+        self._capture_count = 0  # 总采集窗口计数
 
     @property
     def phase(self) -> CapturePhase:
@@ -110,26 +119,15 @@ class CaptureWindowController:
     def phase_display(self) -> str:
         """中文状态显示"""
         return {
-            CapturePhase.IDLE: "空闲",
-            CapturePhase.DELAY: "延时等待",
+            CapturePhase.IDLE: "等待指令",
             CapturePhase.CAPTURING: "采集中",
             CapturePhase.JUDGING: "判定中",
+            CapturePhase.COMPLETE: "等待复位",
         }.get(self._phase, "未知")
 
     @property
-    def time_to_next_window(self) -> float:
-        """距离下一个采集窗口的秒数"""
-        if not self._running:
-            return -1
-        if self._phase == CapturePhase.CAPTURING:
-            return 0
-        elapsed = time.time() - self._cycle_start_time
-        remaining = self.config.cycle_interval_s - elapsed
-        return max(0, remaining)
-
-    @property
     def window_remaining(self) -> float:
-        """当前窗口剩余秒数（仅 CAPTURING 阶段有意义）"""
+        """当前窗口剩余秒数"""
         if self._phase != CapturePhase.CAPTURING:
             return 0
         elapsed = time.time() - self._window_start_time
@@ -138,13 +136,12 @@ class CaptureWindowController:
     def start(self):
         """启动窗口采集控制"""
         self._running = True
-        self._started_time = time.time()
-        self._cycle_start_time = time.time()
         self._phase = CapturePhase.IDLE
+        # 初始化 PLC 状态
+        self._write_plc_state(self.STATE_IDLE)
         logger.info(
-            f"[CaptureWindow] 启动: 周期={self.config.cycle_interval_s}s, "
+            f"[CaptureWindow] 启动(PLC触发模式): "
             f"窗口={self.config.window_duration_s}s, "
-            f"延时={self.config.pre_delay_s}s, "
             f"投票阈值={self.config.vote_threshold}"
         )
 
@@ -152,6 +149,7 @@ class CaptureWindowController:
         """停止窗口采集"""
         self._running = False
         self._phase = CapturePhase.IDLE
+        self._write_plc_state(self.STATE_IDLE)
         logger.info("[CaptureWindow] 已停止")
 
     def update_config(self, **kwargs):
@@ -160,49 +158,72 @@ class CaptureWindowController:
             for k, v in kwargs.items():
                 if hasattr(self.config, k):
                     setattr(self.config, k, v)
-            try:
-                self.config.validate()
-            except ValueError as e:
-                logger.warning(f"[CaptureWindow] 配置校验失败: {e}")
 
     def tick(self):
         """
-        每帧调用一次，驱动状态机转换。
+        每帧调用一次，驱动状态机。
 
-        Returns:
-            当前阶段
+        IDLE: 轮询 PLC_CaptureCmd，读到 1 → CAPTURING
+        CAPTURING: 采集窗口倒计时，到时间 → JUDGING → COMPLETE
+        COMPLETE: 等待 PLC 复位 Cmd=0 → IDLE
         """
         if not self._running:
             return self._phase
 
         now = time.time()
-        elapsed_in_cycle = now - self._cycle_start_time
 
         if self._phase == CapturePhase.IDLE:
-            # 周期到了，进入延时阶段
-            if elapsed_in_cycle >= self.config.cycle_interval_s:
-                self._phase = CapturePhase.DELAY
-                self._cycle_start_time = now
-                logger.debug("[CaptureWindow] → DELAY")
-
-        elif self._phase == CapturePhase.DELAY:
-            # 延时结束，进入采集阶段
-            if elapsed_in_cycle >= self.config.pre_delay_s:
-                self._phase = CapturePhase.CAPTURING
-                self._window_start_time = now
-                self._frame_results.clear()
-                logger.info("[CaptureWindow] → CAPTURING")
+            # 按间隔轮询 PLC 指令（不要每帧都读）
+            if now - self._last_poll_time >= self.config.poll_interval_s:
+                self._last_poll_time = now
+                cmd = self._read_plc_cmd()
+                if cmd == self.CMD_START:
+                    # PLC 发出采集指令
+                    self._phase = CapturePhase.CAPTURING
+                    self._window_start_time = now
+                    self._frame_results.clear()
+                    self._write_plc_state(self.STATE_CAPTURING)
+                    self._capture_count += 1
+                    logger.info(
+                        f"[CaptureWindow] PLC 触发采集 #{self._capture_count}"
+                    )
 
         elif self._phase == CapturePhase.CAPTURING:
-            # 窗口时间到，进入判定阶段
-            window_elapsed = now - self._window_start_time
-            if window_elapsed >= self.config.window_duration_s:
-                self._phase = CapturePhase.JUDGING
-                logger.debug(
-                    f"[CaptureWindow] → JUDGING ({len(self._frame_results)} frames)"
-                )
-                self._finalize_window()
-                self._phase = CapturePhase.IDLE
+            # 轮询 PLC：只看 PLC 指令决定是否停止，不做时间判断
+            if now - self._last_poll_time >= self.config.poll_interval_s:
+                self._last_poll_time = now
+                cmd = self._read_plc_cmd()
+
+                if cmd == self.CMD_IDLE:
+                    # PLC 把 CaptureCmd 置 0（回位信号消失触发 Rung 9）→ 停止采集
+                    logger.info(
+                        f"[CaptureWindow] PLC 停止采集 "
+                        f"({len(self._frame_results)} frames)"
+                    )
+                    if self._frame_results:
+                        self._finalize_window()
+                        self._write_plc_state(self.STATE_COMPLETE)
+                        self._phase = CapturePhase.COMPLETE
+                        logger.info("[CaptureWindow] → COMPLETE, 等待 PLC 复位")
+                    else:
+                        self._phase = CapturePhase.IDLE
+                        self._write_plc_state(self.STATE_IDLE)
+
+                elif cmd == self.CMD_CANCEL:
+                    logger.warning("[CaptureWindow] PLC 取消采集")
+                    self._frame_results.clear()
+                    self._phase = CapturePhase.IDLE
+                    self._write_plc_state(self.STATE_IDLE)
+
+        elif self._phase == CapturePhase.COMPLETE:
+            # 等待 PLC 复位 CaptureCmd=0
+            if now - self._last_poll_time >= self.config.poll_interval_s:
+                self._last_poll_time = now
+                cmd = self._read_plc_cmd()
+                if cmd == self.CMD_IDLE:
+                    self._phase = CapturePhase.IDLE
+                    self._write_plc_state(self.STATE_IDLE)
+                    logger.info("[CaptureWindow] PLC 已复位, → IDLE")
 
         return self._phase
 
@@ -211,16 +232,7 @@ class CaptureWindowController:
         return self._running and self._phase == CapturePhase.CAPTURING
 
     def feed_result(self, result: Dict):
-        """
-        喂入一帧的检测结果（仅在 CAPTURING 阶段有效）
-
-        Args:
-            result: 单帧检测结果字典，需包含：
-                - has_coal (bool): 是否检测到积煤
-                - coal_grids (int): 积煤格栅数
-                - alert_level (str): 报警等级
-                - fault_code (int): 故障码
-        """
+        """喂入一帧的检测结果（仅 CAPTURING 阶段有效）"""
         if self._phase != CapturePhase.CAPTURING:
             return
 
@@ -233,6 +245,39 @@ class CaptureWindowController:
                 "fault_code": result.get("fault_code", 0),
             })
 
+    def _read_plc_cmd(self) -> int:
+        """读取 PLC 采集指令"""
+        if not self.plc:
+            return self.CMD_IDLE
+        try:
+            val = self.plc.read(self.TAG_CAPTURE_CMD)
+            if val is not None:
+                return int(val)
+        except Exception as e:
+            logger.debug(f"[CaptureWindow] 读取 PLC_CaptureCmd 失败: {e}")
+        return self.CMD_IDLE
+
+    def _read_tipper_in_position(self) -> bool:
+        """读取翻车机回位信号"""
+        if not self.plc:
+            return True  # 无 PLC 时默认回位
+        try:
+            val = self.plc.read(self.TAG_TIPPER_IN_POSITION)
+            if val is not None:
+                return bool(val)
+        except Exception as e:
+            logger.debug(f"[CaptureWindow] 读取 Tipper_InPosition 失败: {e}")
+        return True  # 读取失败时不中断采集
+
+    def _write_plc_state(self, state: int):
+        """写入采集状态到 PLC"""
+        if not self.plc:
+            return
+        try:
+            self.plc.write(self.TAG_CAPTURE_STATE, state)
+        except Exception as e:
+            logger.error(f"[CaptureWindow] 写入 Vision_CaptureState={state} 失败: {e}")
+
     def _finalize_window(self):
         """窗口结束，汇总投票"""
         with self._lock:
@@ -241,7 +286,7 @@ class CaptureWindowController:
         total = len(frames)
         if total == 0:
             self.last_window_result = WindowResult(
-                fault_code=3,  # 画质问题（无帧）
+                fault_code=3,
                 confidence="LOW",
             )
             logger.warning("[CaptureWindow] 窗口内无有效帧")
@@ -308,12 +353,10 @@ class CaptureWindowController:
             "phase": self._phase.value,
             "phase_display": self.phase_display,
             "running": self._running,
-            "time_to_next": round(self.time_to_next_window, 1),
             "window_remaining": round(self.window_remaining, 1),
+            "capture_count": self._capture_count,
             "config": {
-                "cycle_interval_s": self.config.cycle_interval_s,
                 "window_duration_s": self.config.window_duration_s,
-                "pre_delay_s": self.config.pre_delay_s,
                 "vote_threshold": self.config.vote_threshold,
             },
             "last_result": {

@@ -65,6 +65,9 @@ class AllenBradleyPLC:
         self.last_heartbeat_time = time.time()
         self.heartbeat_value = 0
 
+        # PLC 读写锁（pycomm3 不是线程安全的）
+        self._io_lock = threading.Lock()
+
         # 重连管理
         self._reconnect_lock = threading.Lock()
         self._reconnect_interval = 5.0  # 重连间隔（秒）
@@ -148,8 +151,9 @@ class AllenBradleyPLC:
             if isinstance(value, str) and len(value) > 82:
                 value = value[:82]  # ControlLogix STRING 最大 82 字符
 
-            # 执行写入
-            result = self.plc.write(tag, value)
+            # 执行写入（加锁防并发）
+            with self._io_lock:
+                result = self.plc.write(tag, value)
 
             if result.error:
                 logger.error(f"[AllenBradleyPLC] 写入失败 {tag}: {result.error}")
@@ -202,7 +206,8 @@ class AllenBradleyPLC:
             return None
 
         try:
-            result = self.plc.read(tag)
+            with self._io_lock:
+                result = self.plc.read(tag)
 
             if result.error:
                 logger.error(f"[AllenBradleyPLC] 读取失败 {tag}: {result.error}")
@@ -241,8 +246,9 @@ class AllenBradleyPLC:
             return False
 
         try:
-            # pycomm3 支持批量写入
-            results = self.plc.write(*list(tag_values.items()))
+            # pycomm3 支持批量写入（加锁防并发）
+            with self._io_lock:
+                results = self.plc.write(*list(tag_values.items()))
 
             success_count = 0
             for tag, result in zip(tag_values.keys(), results):
@@ -341,7 +347,8 @@ class AllenBradleyPLC:
 
         try:
             # 尝试读取心跳标签来验证连接
-            result = self.plc.read("IPC_Heartbeat")
+            with self._io_lock:
+                result = self.plc.read("IPC_Heartbeat")
 
             if result.error:
                 logger.warning(f"[AllenBradleyPLC] 连接检查失败: {result.error}")
@@ -421,7 +428,8 @@ class AllenBradleyPLC:
             if self.is_connected:
                 self.heartbeat_value = (self.heartbeat_value + 1) % 65536
                 try:
-                    result = self.plc.write("IPC_Heartbeat", self.heartbeat_value)
+                    with self._io_lock:
+                        result = self.plc.write("IPC_Heartbeat", self.heartbeat_value)
                     if result.error:
                         self._consecutive_failures += 1
                         logger.debug(f"[AllenBradleyPLC] 心跳写入失败: {result.error}")

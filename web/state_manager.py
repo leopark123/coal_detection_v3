@@ -113,29 +113,9 @@ class StateManager:
             except Exception as e:
                 logger.error(f"[StateManager] PLC {mc.plc_ip} 连接失败: {e}")
 
-            # 创建每个漏斗的 camera + detector
+            # 创建每个漏斗的 camera + detector + capture_controller
             for fc in mc.funnels:
-                funnel_cfg = build_funnel_config(base_config, mc, fc)
-                fs = FunnelState(machine_id=mc.id, funnel_id=fc.id)
-                fs.config = funnel_cfg
-
-                try:
-                    fs.camera = create_camera(funnel_cfg)
-                    logger.info(f"[StateManager] 相机 {fc.camera_ip} 已连接 ({mc.name}/{fc.name})")
-                except Exception as e:
-                    logger.error(f"[StateManager] 相机 {fc.camera_ip} 连接失败: {e}")
-
-                try:
-                    fs.detector = DeviceDetector(
-                        funnel_cfg,
-                        device_id=f"{mc.id}/{fc.id}",
-                        grid_count=fc.grid_count,
-                    )
-                except Exception as e:
-                    logger.error(f"[StateManager] 检测器创建失败 ({mc.name}/{fc.name}): {e}")
-
-                fs.is_running = bool(fs.camera and fs.detector)
-                ms.funnels[fc.id] = fs
+                self._create_funnel(ms, mc, fc)
 
             self.machines[mc.id] = ms
 
@@ -313,14 +293,13 @@ class StateManager:
         if not ms:
             raise ValueError(f"翻车机 {machine_id} 不存在")
 
-        # 更新每个漏斗的采集状态
+        # 更新每个漏斗的采集状态（不改 is_running，WebSocket 保持连接）
         for fs in ms.funnels.values():
             fs.vision_enabled = enabled
-            if not enabled:
-                fs.is_running = False
-            else:
-                # 恢复时只有 camera+detector 都就绪才启动
-                fs.is_running = bool(fs.camera and fs.detector)
+            if not enabled and fs.capture_controller:
+                fs.capture_controller.stop()
+            elif enabled and fs.capture_controller:
+                fs.capture_controller.start()
 
         # 通知 PLC
         if ms.plc and hasattr(ms.plc, "set_vision_enable"):
@@ -373,16 +352,14 @@ class StateManager:
         except Exception as e:
             logger.error(f"[StateManager] 检测器创建失败 ({mc.name}/{fc.name}): {e}")
 
-        # 窗口采集控制器
+        # 窗口采集控制器（PLC 触发模式）
         cap_cfg = CaptureWindowConfig(
-            cycle_interval_s=getattr(fc, 'capture_cycle_s', 30.0),
             window_duration_s=getattr(fc, 'capture_window_s', 3.0),
-            pre_delay_s=getattr(fc, 'capture_delay_s', 2.0),
             vote_threshold=getattr(fc, 'capture_vote_threshold', 0.6),
         )
-        fs.capture_controller = CaptureWindowController(cap_cfg)
+        fs.capture_controller = CaptureWindowController(cap_cfg, plc=ms.plc)
 
-        # 设置窗口完成回调：写 PLC
+        # 设置窗口完成回调：写检测结果到 PLC
         def _on_window_complete(result, _ms=ms, _fs=fs):
             if _ms.plc and hasattr(_ms.plc, 'send_detection_result'):
                 _ms.plc.send_detection_result(

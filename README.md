@@ -1,227 +1,235 @@
 # 翻车机积煤检测系统 V3.0
 
-> 基于计算机视觉的工业级积煤检测系统，支持多翻车机多漏斗管理，开发/生产模式无缝切换。
+基于计算机视觉的工业级积煤检测系统，用于煤矿翻车机房格栅积煤实时检测，与 PLC 安全连锁。
 
-## 特性
+## 系统概述
 
-- **多机多漏斗架构**：配置驱动，支持 N 台翻车机 × M 个漏斗动态扩展
-- **虚实分离**：Mock 驱动支持无硬件开发，DEV/PROD 一键切换
-- **高性能**：双缓冲 + 非阻塞采集，单帧检测 < 15ms
-- **安全可靠**：三级置信度判定 + 多帧投票 + 人工确认机制
-- **实时 Web 监控**：三级页面（总览→翻车机→漏斗），WebSocket 实时推流
-- **PLC 联锁**：6 个标签最小化通信，500ms 心跳监控
-- **窗口采集**：周期性采集窗口 + 多帧投票，非持续采集
-- **视觉启停**：UI 一键启停采集，停用时 PLC 允许翻车
-- **管理员设置**：Web 页面在线增删翻车机/漏斗，密码保护
+- **多机多漏斗架构**：一台服务器管理 N 台翻车机 × M 个漏斗，动态增减
+- **PLC 触发采集**：翻车机回位 → PLC 延时 → PLC 发采集指令 → 服务器采集 → 投票判定 → 结果写回 PLC
+- **安全连锁**：检测结果直接控制翻车机允许/禁止翻转，宁可漏报不可误报
+- **Web 监控**：实时视频推流 + 状态展示 + 在线管理
 
 ## 硬件环境
 
-| 设备 | 型号 | 说明 |
-|------|------|------|
-| 相机 | Basler acA1600-60gm | Mono8 灰度, 1600×1200, GigE |
-| PLC | AB 1769-L16ER/B B1B | CompactLogix, Ethernet/IP |
-| 工控机 | Windows 10 Pro | Python 3.10+ |
-| 网络 | 千兆交换机 | 相机/PLC/工控机互联 |
+| 设备 | 型号 | IP | 说明 |
+|------|------|-----|------|
+| 工控机 | Windows 10 Pro | 192.168.1.10 | Python 3.10+，运行检测服务 |
+| 相机 | Basler acA1600-60gm | 192.168.1.12 | Mono8 灰度, 1600x1200, GigE |
+| PLC | AB 1769-L16ER/B B1B | 192.168.1.19 | CompactLogix, Ethernet/IP |
+| 网络 | 千兆交换机 | — | 相机/PLC/工控机互联 |
 
 ## 快速开始
 
-### 1. 安装依赖
-
 ```powershell
+# 1. 安装依赖
 pip install -r requirements.txt
+pip install pypylon    # Basler 相机驱动
+pip install pycomm3    # AB PLC 通信
 
-# 生产环境额外依赖
-pip install pypylon    # Basler 相机
-pip install pycomm3    # AB PLC
-pip install websockets # WebSocket 支持
-```
-
-### 2. 开发模式运行
-
-```powershell
-# 设置开发模式
+# 2. 开发模式（无硬件）
 set COAL_ENV=DEV
-
-# 方式1：主检测程序
-python main.py --dev
-
-# 方式2：统一 Web 界面（推荐）
 python -m uvicorn web.unified_app:app --host 0.0.0.0 --port 8080
 
-# 浏览器访问 http://localhost:8080
-```
-
-### 3. 生产模式运行
-
-```powershell
-# 不设置 COAL_ENV 或设为 PROD（默认生产模式）
-python main.py --config config/config_prod.yaml
-
-# Web 监控
+# 3. 生产模式（连接真实硬件）
 python -m uvicorn web.unified_app:app --host 0.0.0.0 --port 8080
+
+# 4. 浏览器访问
+# http://localhost:8080
 ```
 
-### 4. 硬件测试
-
-```powershell
-# 测试相机和 PLC 连接
-python tools/hardware_test.py
-
-# 相机+PLC 联调
-python tools/integration_test_hw.py --frames 20
-```
-
-## 系统架构
+## 采集时序（PLC 控制）
 
 ```
-config/devices.yaml（配置驱动）
-    │
-    ▼
-┌─ 服务器 ──────────────────────────────────────┐
-│  StateManager（中央状态管理器）                 │
-│  ├── 翻车机 1# (PLC: 192.168.1.19)           │
-│  │   ├── 漏斗1 (相机: 192.168.1.12, 125格栅)  │
-│  │   ├── 漏斗2 (相机: 192.168.1.13, N格栅)    │
-│  │   └── ...                                  │
-│  ├── 翻车机 2# (PLC: 192.168.2.19)           │
-│  │   └── ...                                  │
-│  └── 可动态增减                                │
-│                                               │
-│  unified_app.py (FastAPI)                     │
-│  ├── /           总览页                        │
-│  ├── /machine/X  翻车机详情（多路视频网格）     │
-│  └── /machine/X/funnel/Y  漏斗详情            │
-└───────────────────────────────────────────────┘
+翻车机翻转 → 回到原位 → PLC 延时(可调) → PLC 发采集指令 → 服务器采集 → 投票判定 → 结果写 PLC
+                                                                              ↓
+                                                                    回位信号消失 → PLC 停止指令 → 服务器停止采集
 ```
+
+**PLC 负责**：延时控制、发出采集/停止指令
+**服务器负责**：收到指令就采集/停止，不做时间判断
+
+### PLC 梯形图逻辑
+
+```
+Rung 0: NEQ IPC_Heartbeat HB_Last → MOV + RES HB_Timer     # 心跳变化检测
+Rung 1: TON HB_Timer 2000ms                                  # 心跳超时 2 秒
+Rung 2: IPC_Online + XIO HB_Timer.DN → Vision_Alive          # 视觉系统存活
+Rung 3: XIO Vision_Alive → Fault_Light                       # 故障报警灯
+Rung 4: Vision_Enable 并联:
+        支路1: XIO Vision_Enable → Allow_Tip                  # 视觉停用 → 直接允许翻车
+        支路2: Vision_Alive + Vision_CanTip + Vision_ResultValid + EQU FaultCode=0 → Allow_Tip
+Rung 5: EQU FaultCode=4 → Manual_Confirm_Light               # 需人工确认灯
+Rung 6: Tipper_InPosition + Vision_Enable + EQU CaptureState=0 → TON 延时
+Rung 7: Delay.DN + EQU CaptureCmd=0 → MOV 1 → PLC_CaptureCmd
+Rung 8: EQU CaptureState=2 → MOV 0 → PLC_CaptureCmd + RES Timer
+Rung 9: XIO Tipper_InPosition → MOV 0 → PLC_CaptureCmd + RES Timer  # 回位消失立即停止
+```
+
+## PLC 点位表
+
+### 视觉系统标签（服务器写入）
+
+| 标签 | 类型 | 说明 |
+|------|------|------|
+| Vision_CanTip | BOOL | 可翻转（无积煤=True，**安全连锁核心信号**） |
+| Vision_FaultCode | DINT | 故障码（0=正常, 1=相机, 2=PLC通信, 3=画质, 4=需人工） |
+| Vision_ResultValid | BOOL | 结果可信（高/中置信度=True） |
+| IPC_Heartbeat | DINT | 心跳递增值（500ms 周期） |
+| IPC_Online | BOOL | 视觉系统在线 |
+| Vision_Enable | BOOL | 视觉采集启用（停用时 PLC 强制 Allow_Tip=1） |
+| Vision_CaptureState | DINT | 采集状态（0=空闲, 1=采集中, 2=判定完成） |
+
+### PLC 控制标签（PLC 写入）
+
+| 标签 | 类型 | 说明 |
+|------|------|------|
+| PLC_CaptureCmd | DINT | 采集指令（0=空闲, 1=开始采集） |
+| Tipper_InPosition | BOOL | 翻车机回位信号 |
+
+### PLC 内部标签
+
+| 标签 | 类型 | 说明 |
+|------|------|------|
+| HB_Last | DINT | 上次心跳值 |
+| HB_Timer | TIMER | 心跳超时计时器 |
+| Vision_Alive | BOOL | 视觉系统存活 |
+| Allow_Tip | BOOL | 允许翻车（最终输出） |
+| Fault_Light | BOOL | 故障指示灯 |
+| Manual_Confirm_Light | BOOL | 需人工确认指示灯 |
+| Capture_Delay_Timer | TIMER | 采集延时计时器 |
+
+## 检测算法
+
+### 双因素检测
+
+| 因素 | 方法 | 输出 |
+|------|------|------|
+| 格栅孔计数 | 二值化 + 轮廓面积 | 格栅可见率 (0~1) |
+| 积煤面积 | HSV 分割 + 掩码统计 | 覆盖率 (0~1) |
+
+### 三级置信度判定
+
+| 置信度 | 条件 | 动作 |
+|--------|------|------|
+| HIGH | 两指标一致 | 直接输出 |
+| MEDIUM | 单指标明显异常 | 直接输出 |
+| LOW | 指标矛盾 | 需人工确认，FaultCode=4 |
+
+### 处理流程
+
+```
+原始帧 → 质量自检 → ECC配准(降采样320x240) → CLAHE增强 → 双因素检测 → 综合判定
+```
+
+## Web 界面
+
+| 页面 | URL | 功能 |
+|------|-----|------|
+| 总览 | / | 所有翻车机卡片、实时时钟、采集状态、报警统计、启停按钮 |
+| 翻车机详情 | /machine/{id} | 多路视频网格、PLC 状态、启停按钮 |
+| 漏斗详情 | /machine/{id}/funnel/{id} | 大图视频、检测结果、格栅热力图 |
+| 管理设置 | /settings | 增删翻车机/漏斗、修改参数（密码保护） |
+
+### 视觉启停控制
+
+UI 上的启停按钮与 PLC 互锁：
+- **采集中**：Vision_Enable=1，PLC 正常检测逻辑
+- **已停用**：Vision_Enable=0，PLC 强制 Allow_Tip=1（允许翻车），心跳继续
+
+## 多机配置
+
+编辑 `config/devices.yaml`：
+
+```yaml
+machines:
+  - id: machine-1
+    name: 1#翻车机
+    plc_ip: 192.168.1.19
+    funnels:
+      - id: funnel-1
+        name: 1#漏斗
+        camera_ip: 192.168.1.12
+        pixel_format: mono       # mono=灰度, color=彩色（将来切换）
+        grid_count: 125
+        capture_vote_threshold: 0.6
+```
+
+也可通过设置页在线增删，自动持久化。
 
 ## 项目结构
 
 ```
 coal_detection/
-├── main.py                    # 主检测程序入口
+├── main.py                       # 主检测程序入口
 ├── config/
-│   ├── config.py              # 配置类（DEV/PROD 模式）
-│   ├── config_prod.yaml       # 生产环境配置
-│   ├── config_dev.yaml        # 开发环境配置
-│   ├── devices.yaml           # 多翻车机拓扑配置
-│   └── devices_config.py      # 拓扑配置加载器
-│
-├── drivers/
-│   ├── factory.py             # 驱动工厂（自动选 Mock/真实）
-│   ├── basler_camera.py       # Basler GigE 相机驱动
-│   └── mock_drivers.py        # Mock 驱动（开发用）
-│
-├── algo/
-│   ├── detector.py            # 主检测算法（ECC+CLAHE+双因素）
-│   ├── device_detector.py     # 设备级检测（多格栅聚合）
-│   ├── judge.py               # 三级置信度判定
-│   └── ...
-│
-├── plc/
-│   └── allen_bradley.py       # AB PLC 通信（6 标签）
-│
+│   ├── config.py                 # 配置类（DEV/PROD 模式切换）
+│   ├── devices.yaml              # 多翻车机拓扑配置
+│   └── devices_config.py         # 拓扑配置加载器
 ├── core/
-│   └── capture_window.py      # 窗口采集控制器（状态机+投票）
-│
+│   ├── capture_window.py         # 窗口采集控制器（PLC 触发模式）
+│   ├── double_buffer.py          # 双缓冲共享内存
+│   └── capture_process.py        # 采集进程
+├── drivers/
+│   ├── factory.py                # 驱动工厂（自动选 Mock/真实）
+│   ├── basler_camera.py          # Basler GigE 相机驱动
+│   └── mock_drivers.py           # Mock 驱动（开发用）
+├── algo/
+│   ├── detector.py               # 主检测算法（ECC+CLAHE+双因素）
+│   ├── device_detector.py        # 设备级检测（多格栅聚合）
+│   └── judge.py                  # 三级置信度判定
+├── plc/
+│   └── allen_bradley.py          # AB PLC 通信（线程安全读写锁）
 ├── web/
-│   ├── unified_app.py         # 统一 Web 应用
-│   ├── state_manager.py       # 中央状态管理器
-│   ├── admin_api.py           # 管理员 API（增删翻车机/漏斗）
-│   ├── common.py              # 共享工具
-│   ├── templates/
-│   │   ├── overview.html      # 总览页（实时时钟+采集状态+启停按钮）
-│   │   ├── machine_detail.html # 翻车机详情页
-│   │   ├── funnel_detail.html # 漏斗详情页
-│   │   └── settings.html      # 管理员设置页（密码保护）
-│   └── static/
-│       ├── css/theme.css      # 统一暗色主题+动画
-│       └── js/ws-reconnect.js # WebSocket 自动重连
-│
+│   ├── unified_app.py            # 统一 Web 应用（FastAPI）
+│   ├── state_manager.py          # 中央状态管理器
+│   ├── admin_api.py              # 管理员 API
+│   ├── common.py                 # WebSocket 推流（异步非阻塞）
+│   ├── templates/                # 页面模板
+│   └── static/                   # 暗色主题 + 动画 + WebSocket 重连
 ├── tools/
-│   ├── hardware_test.py       # 硬件连接测试
-│   └── integration_test_hw.py # 联调测试
-│
-├── tests/                     # 测试（98 cases）
-└── logs/                      # 日志和报警图像
+│   ├── hardware_test.py          # 硬件连接测试
+│   └── integration_test_hw.py    # 联调测试
+├── tests/                        # 116 测试用例
+└── logs/                         # 日志和报警图像
 ```
-
-## 多机配置
-
-编辑 `config/devices.yaml` 增删翻车机和漏斗：
-
-```yaml
-machines:
-  - id: "machine-1"
-    name: "1#翻车机"
-    plc_ip: "192.168.1.19"
-    funnels:
-      - id: "funnel-1"
-        name: "1#漏斗"
-        camera_ip: "192.168.1.12"
-        pixel_format: "mono"    # mono=灰度, color=彩色
-        grid_count: 125         # 标定后确定
-
-  - id: "machine-2"
-    name: "2#翻车机"
-    plc_ip: "192.168.2.19"
-    funnels:
-      - id: "funnel-1"
-        camera_ip: "192.168.2.12"
-        grid_count: 108
-```
-
-## PLC 点位表
-
-| 标签 | 类型 | 说明 |
-|------|------|------|
-| `Vision_CanTip` | BOOL | 可翻转（无积煤=True，安全连锁核心） |
-| `Vision_FaultCode` | DINT | 故障码（0=正常, 3=画质, 4=需人工） |
-| `Vision_ResultValid` | BOOL | 结果可信（高/中置信度=True） |
-| `IPC_Heartbeat` | DINT | 心跳递增（500ms 周期） |
-| `IPC_Online` | BOOL | 视觉系统在线 |
-| `Vision_Enable` | BOOL | 视觉采集启用（停用时 Allow_Tip 强制=1） |
-
-## 窗口采集模式
-
-系统不是持续采集，而是按周期在固定时间窗口内采集：
-
-```
-|--- 空闲(不采集) ---|--- 延时 ---|--- 采集窗口(连续采集) ---|--- 空闲 ---|
-|<-------------- cycle_interval_s (默认30s) ----------------->|
-```
-
-可配置参数（`devices.yaml` 或设置页 API）：
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `capture_cycle_s` | 30 | 采集周期（秒） |
-| `capture_window_s` | 3 | 采集窗口时长（秒） |
-| `capture_delay_s` | 2 | 窗口前延时（秒） |
-| `capture_vote_threshold` | 0.6 | 投票阈值 |
 
 ## 开发模式 vs 生产模式
 
-| 特性 | 开发模式 (DEV) | 生产模式 (PROD) |
-|------|----------------|-----------------|
-| 相机 | MockCamera | BaslerCamera |
-| PLC | MockPLC | AllenBradleyPLC |
-| 分辨率 | 1024×768 | 1600×1200 |
+| 特性 | DEV | PROD |
+|------|-----|------|
+| 相机 | MockCamera（噪声+时间戳） | BaslerCamera（GigE 实机） |
+| PLC | MockPLC（内存模拟） | AllenBradleyPLC（Ethernet/IP） |
+| 分辨率 | 1024x768 | 1600x1200 |
 | 帧率 | 1 FPS | 5.5 FPS |
 | ECC 配准 | 禁用 | 启用 |
+
+切换方式：环境变量 `COAL_ENV=DEV` 或命令行 `--dev`
 
 ## 测试
 
 ```powershell
-# 运行全部测试
 pytest tests/ -v
-
 # 当前: 116 passed
 ```
 
-## 参考文档
+## 相机 I/O 线缆（Hirose 6-pin）
 
-- `CLAUDE.md` — 项目技术规范
-- `docs/` — 详细设计文档
+| 线色 | 功能 | 当前状态 |
+|------|------|----------|
+| 白 | Line1 输入（外部触发） | 暂不接，预留硬触发 |
+| 绿 | Line1 GND | 暂不接 |
+| 黄 | Line2 输出（曝光信号，可触发补光灯） | 暂不接 |
+| 蓝 | Line2 GND | 暂不接 |
+| 裸线 | 屏蔽接地 | 建议接 PE 地排 |
+
+## 安全原则
+
+**宁可漏报，不可误报**。误报积煤 → 翻车机急停 → 煤车倾倒卡死设备。
+
+- 采集永不阻塞主循环
+- 心跳 500ms 必须递增，PLC 校验视觉系统存活
+- 故障必须报（相机掉线、PLC 断连、低置信度）
+- 视觉停用时 PLC 强制允许翻车
 
 ## License
 
