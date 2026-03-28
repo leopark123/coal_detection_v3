@@ -428,8 +428,8 @@ class TestBenchmark:
         assert prod_avg_ms > 0
         assert dev_avg_ms < 1500
         assert prod_avg_ms < 1500
-        assert isinstance(dev_result, dict)
-        assert isinstance(prod_result, dict)
+        assert hasattr(dev_result, 'to_dict')  # DetectionResult (dict-like)
+        assert hasattr(prod_result, 'to_dict')
         assert "confidence" in dev_result
         assert "confidence" in prod_result
 

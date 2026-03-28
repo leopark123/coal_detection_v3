@@ -226,10 +226,31 @@ pytest tests/ -v
 
 **宁可漏报，不可误报**。误报积煤 → 翻车机急停 → 煤车倾倒卡死设备。
 
-- 采集永不阻塞主循环
+- 画质自检失败（全黑/过曝/模糊）→ `FaultCode=3`, `CanTip=False`（不允许翻车）
+- 检测结果不确定（`has_coal=None`）→ `CanTip=False`（安全优先）
 - 心跳 500ms 必须递增，PLC 校验视觉系统存活
-- 故障必须报（相机掉线、PLC 断连、低置信度）
+- 故障必须报（相机掉线、PLC 断连、画质异常、低置信度）
 - 视觉停用时 PLC 强制允许翻车
+- 视觉启停 API 需管理员鉴权
+- PLC 读写加锁（`_io_lock`），心跳值递增加锁（`_heartbeat_value_lock`）
+- 相机连续 30 次采集失败自动释放线程
+- ECC 配准漂移量超限自动重置
+- PLC 重连时加 10 秒超时，防止 TCP 挂死
+
+## 已修复的安全漏洞
+
+| 编号 | 严重度 | 问题 | 修复 |
+|------|--------|------|------|
+| C1 | CRITICAL | DetectionResult 继承 dict 但底层为空，len()/keys() 静默返回空 | 移除 dict 继承，纯 dataclass + dict-like 方法 |
+| C2 | CRITICAL | 心跳值两个线程同时递增无锁 | 新增 _heartbeat_value_lock |
+| C3 | CRITICAL | coal_present=None 时 not None=True → 允许翻车 | 改为 coal_present is False 严格判断 |
+| C4 | CRITICAL | detect_frame 和 camera.grab 共用线程池导致饥饿 | 独立 _detect_executor（8 workers） |
+| — | CRITICAL | 画质失败时 DeviceDetector 丢失 quality_ok → 允许翻车 | 增加 quality_ok/fault_code 传递 |
+| H1 | HIGH | grid_rois 截断后 grid_mask 过时，覆盖率低估 | 截断后重建 grid_mask |
+| H2 | HIGH | 窗口投票置信度逻辑重叠 | 用 consistency 公式重写 |
+| H3 | HIGH | PLC 重连时 self.plc 替换不受锁保护 | 在 _io_lock 下替换 |
+| H4 | HIGH | 相机断开后 WebSocket 循环永不退出 | 连续 30 次失败后 break |
+| H5 | HIGH | 视觉启停 API 无鉴权 | 添加 Depends(verify_admin) |
 
 ## License
 

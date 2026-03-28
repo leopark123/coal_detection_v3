@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 import time
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 from collections import deque
 from pathlib import Path
@@ -36,8 +36,8 @@ class GridInfo:
 
 
 @dataclass
-class DetectionResult(dict):
-    """检测结果"""
+class DetectionResult:
+    """检测结果（纯 dataclass，不再继承 dict）"""
     has_coal: Optional[bool]        # True/False/None(无法判定)
     confidence: str                 # HIGH/MEDIUM/LOW/NORMAL/WARNING
     confidence_score: float         # 0.0 ~ 1.0
@@ -51,12 +51,16 @@ class DetectionResult(dict):
     grid_details: Optional[list[GridInfo]] = None  # 格栅详细信息
     annotated_frame: Optional[np.ndarray] = None  # 标注后的图像
 
+    # 缓存 to_dict 结果，避免重复创建
+    _cached_dict: Optional[dict] = field(default=None, repr=False, compare=False)
+
     def to_dict(self) -> dict:
-        """转为字典"""
+        """转为字典（带缓存）"""
+        if self._cached_dict is not None:
+            return self._cached_dict
         details = self.grid_details or []
         process_time_sec = self.process_time_ms / 1000.0
-        # 兼容旧接口字段，避免历史测试/模块直接按 dict 访问失败
-        return {
+        d = {
             "has_coal": self.has_coal,
             "coal_present": self.has_coal,
             "confidence": self.confidence,
@@ -76,6 +80,8 @@ class DetectionResult(dict):
             "visible_grids": sum(1 for g in details if g.is_visible),
             "coal_grids": sum(1 for g in details if g.has_coal),
         }
+        self._cached_dict = d
+        return d
 
     def __getitem__(self, key):
         return self.to_dict()[key]
@@ -86,8 +92,20 @@ class DetectionResult(dict):
     def __contains__(self, key):
         return key in self.to_dict()
 
-    def copy(self) -> dict:
-        return self.to_dict().copy()
+    def keys(self):
+        return self.to_dict().keys()
+
+    def values(self):
+        return self.to_dict().values()
+
+    def items(self):
+        return self.to_dict().items()
+
+    def __len__(self):
+        return len(self.to_dict())
+
+    def __iter__(self):
+        return iter(self.to_dict())
 
 
 class CoalDetector:
@@ -416,7 +434,14 @@ class CoalDetector:
                 cv2.MOTION_TRANSLATION,
                 self.ecc_criteria
             )
-            
+
+            # ★ 漂移量钳位：超过降采样图尺寸的 10% 就重置（防止长期累积漂移）
+            max_drift = max(self.config.ECC_PROCESS_WIDTH, self.config.ECC_PROCESS_HEIGHT) * 0.1
+            dx, dy = abs(self.warp_matrix[0, 2]), abs(self.warp_matrix[1, 2])
+            if dx > max_drift or dy > max_drift:
+                logger.warning(f"[CoalDetector] ECC 漂移过大 dx={dx:.1f} dy={dy:.1f}，重置矩阵")
+                self.warp_matrix = np.eye(2, 3, dtype=np.float32)
+
             # 缩放到原图尺寸
             real_warp = self.warp_matrix.copy()
             real_warp[0, 2] *= self.config.ecc_scale_x
@@ -767,8 +792,9 @@ class _JudgeAdapter:
 
     def judge(self, grid_ratio: float, coverage: float) -> dict:
         has_coal, confidence, score, need_manual = self._detector._judge(grid_ratio, coverage)
-        if confidence == "NORMAL":
-            confidence = "HIGH"
+        # NORMAL 表示无异常，在置信度语义中等同于 HIGH（明确无煤）
+        # 保留原始值传递，不再静默重映射
+        # 下游代码应将 NORMAL 和 HIGH 同等处理
         return {
             "coal_present": has_coal,
             "confidence": confidence,

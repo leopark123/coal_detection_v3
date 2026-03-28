@@ -5,6 +5,7 @@ Shared helpers for web applications.
 import asyncio
 import base64
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, MutableSequence
 
@@ -13,6 +14,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
+
+# 独立线程池：用于 detect_frame（含 PLC 读取），避免与 camera.grab 竞争默认线程池
+_detect_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="detect")
 
 
 def mount_static_and_templates(
@@ -161,11 +165,18 @@ async def run_websocket_stream(
                 if now - last_err > 30:
                     logger.error(f"{app_tag} 采集失败: {e}")
                     state._last_grab_err_log = now
+                # 连续失败计数，超过 30 次（~90秒）退出循环释放线程
+                grab_fails = getattr(state, '_grab_fail_count', 0) + 1
+                state._grab_fail_count = grab_fails
+                if grab_fails >= 30:
+                    logger.error(f"{app_tag} 相机连续{grab_fails}次采集失败，停止推流")
+                    break
                 await asyncio.sleep(3)
                 continue
+            state._grab_fail_count = 0  # 采集成功重置
 
-            # 检测也可能耗时，放到线程池
-            result = await loop.run_in_executor(None, detect_frame, frame, frame_id)
+            # 检测用独立线程池（含 PLC 读取），避免与 grab 竞争默认池
+            result = await loop.run_in_executor(_detect_executor, detect_frame, frame, frame_id)
             on_result(result)
 
             if result is not None:
@@ -180,22 +191,25 @@ async def run_websocket_stream(
                 await websocket.send_json(build_response_data(result, image_base64))
                 frame_id += 1
             else:
-                # 窗口外：只推送原始画面（低频），不做检测
-                image_base64 = encode_frame_jpeg_base64(frame, quality=60)
-                # 获取采集窗口状态
-                cap_status = {}
-                cc = getattr(state, 'capture_controller', None)
-                if cc:
-                    cap_status = {
-                        "capture_phase": cc.phase.value,
-                        "capture_phase_display": cc.phase_display,
-                        "window_remaining": round(cc.window_remaining, 1),
-                    }
-                await websocket.send_json({
-                    "image": image_base64,
-                    "idle": True,
-                    **cap_status,
-                })
+                # 窗口外：低频推送原始画面（每2秒一帧，而非每帧都推）
+                idle_counter = getattr(state, '_idle_frame_counter', 0) + 1
+                state._idle_frame_counter = idle_counter
+                idle_interval = max(1, int(2.0 / max(state.config.frame_interval, 0.05)))
+                if idle_counter % idle_interval == 0:
+                    image_base64 = encode_frame_jpeg_base64(frame, quality=40)
+                    cap_status = {}
+                    cc = getattr(state, 'capture_controller', None)
+                    if cc:
+                        cap_status = {
+                            "capture_phase": cc.phase.value,
+                            "capture_phase_display": cc.phase_display,
+                            "window_remaining": round(cc.window_remaining, 1),
+                        }
+                    await websocket.send_json({
+                        "image": image_base64,
+                        "idle": True,
+                        **cap_status,
+                    })
 
             await asyncio.sleep(state.config.frame_interval)
 

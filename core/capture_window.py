@@ -301,12 +301,14 @@ class CaptureWindowController:
         # 投票判定
         is_alarm = alarm_ratio >= self.config.vote_threshold
 
-        # 置信度
-        if alarm_ratio >= 0.8 or alarm_ratio <= 0.2:
+        # 置信度（基于报警一致性）
+        # 离 0% 或 100% 越近，置信度越高
+        consistency = abs(alarm_ratio - 0.5) * 2  # 0.0~1.0，越大越一致
+        if consistency >= 0.6:       # 报警率 <=20% 或 >=80%
             confidence = "HIGH"
-        elif alarm_ratio >= 0.6 or alarm_ratio <= 0.4:
+        elif consistency >= 0.2:     # 报警率 <=40% 或 >=60%
             confidence = "MEDIUM"
-        else:
+        else:                        # 报警率 40%~60%，模糊区间
             confidence = "LOW"
 
         # 故障码：取窗口内出现最多的非零故障码

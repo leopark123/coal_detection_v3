@@ -291,15 +291,50 @@ FAULT_QUALITY_FAIL = 3   # 画面质量问题
 FAULT_LOW_CONFIDENCE = 4 # 低置信度，需人工确认
 ```
 
-### 5.3 PLC 点位表（5 个标签，最小化通信）
+### 5.3 PLC 点位表
 
-| 点位名称 | 类型 | 方向 | 说明 |
-|----------|------|------|------|
-| Vision_CanTip | BOOL | 写 | 可翻转（无积煤且置信度足够=True，安全连锁核心信号） |
-| Vision_FaultCode | DINT | 写 | 故障码（0=正常, 1=相机故障, 2=PLC通信, 3=画质问题, 4=低置信度需人工） |
-| Vision_ResultValid | BOOL | 写 | 结果可信（高/中置信度=True, 低置信度=False） |
-| IPC_Heartbeat | DINT | 写 | 心跳递增值（500ms 周期，PLC 校验视觉系统存活） |
-| IPC_Online | BOOL | 写 | 视觉系统在线（启动时=True, 关闭时=False） |
+#### 服务器写入标签
+
+| 点位名称 | 类型 | 说明 |
+|----------|------|------|
+| Vision_CanTip | BOOL | 可翻转（**仅 coal_present is False 且无故障时=True**，安全连锁核心信号） |
+| Vision_FaultCode | DINT | 故障码（0=正常, 1=相机故障, 2=PLC通信, 3=画质问题, 4=低置信度需人工） |
+| Vision_ResultValid | BOOL | 结果可信（高/中置信度 且 无故障 且 结果明确=True） |
+| IPC_Heartbeat | DINT | 心跳递增值（500ms 周期，线程安全加锁递增） |
+| IPC_Online | BOOL | 视觉系统在线（启动时=True, 关闭时=False） |
+| Vision_Enable | BOOL | 视觉采集启用（停用时 PLC 强制 Allow_Tip=1） |
+| Vision_CaptureState | DINT | 采集状态（0=空闲, 1=采集中, 2=判定完成） |
+
+#### PLC 写入标签
+
+| 点位名称 | 类型 | 说明 |
+|----------|------|------|
+| PLC_CaptureCmd | DINT | 采集指令（0=空闲, 1=开始采集） |
+| Tipper_InPosition | BOOL | 翻车机回位信号 |
+
+### 5.4 安全信号逻辑（★ 关键）
+
+```python
+# can_tip 判定（plc/allen_bradley.py）
+# ★ coal_present=None 时 can_tip=False（安全优先）
+can_tip = (coal_present is False) and (not need_manual) and (fault_code == 0)
+
+# result_valid 判定
+result_valid = (confidence in ("HIGH", "MEDIUM")) and (fault_code == 0) and (coal_present is not None)
+```
+
+### 5.5 线程安全规范
+
+```python
+# PLC 读写锁（pycomm3 不是线程安全的）
+self._io_lock = threading.Lock()           # 保护所有 plc.read()/plc.write() 调用
+self._heartbeat_value_lock = threading.Lock()  # 保护 heartbeat_value 读-改-写
+self._reconnect_lock = threading.Lock()    # 保护重连过程
+
+# 重连时必须在 _io_lock 下替换 self.plc 引用
+with self._io_lock:
+    self.plc = new_plc
+```
 
 ---
 

@@ -67,7 +67,7 @@ class TestCoalDetector:
         """测试干净图像检测"""
         result = detector.detect(test_image)
 
-        assert isinstance(result, dict)
+        assert hasattr(result, 'to_dict')  # DetectionResult (dict-like)
         assert "coal_present" in result
         assert "confidence" in result
         assert "grid_ratio" in result
@@ -120,7 +120,7 @@ class TestCoalDetector:
         wrong_dtype_img = np.zeros((768, 1024, 3), dtype=np.float32)
         # 应该自动转换，不抛异常
         result = detector.detect(wrong_dtype_img)
-        assert isinstance(result, dict)
+        assert hasattr(result, 'to_dict')  # DetectionResult (dict-like)
 
     def test_multiple_frames(self, detector, test_image):
         """测试多帧处理"""
@@ -349,7 +349,7 @@ class TestDetectorIntegration:
                       f"time={result['processing_time']:.3f}s")
 
                 # 基本有效性检查
-                assert isinstance(result, dict)
+                assert hasattr(result, 'to_dict')  # DetectionResult (dict-like)
                 assert 0.0 <= result["grid_ratio"] <= 1.0
                 assert 0.0 <= result["coverage_ratio"] <= 1.0
 

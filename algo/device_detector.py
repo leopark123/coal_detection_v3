@@ -28,6 +28,8 @@ class DeviceResult:
     device_alert_level: str = "NORMAL"  # NORMAL/ATTENTION/WARNING/CRITICAL
     coal_percentage: float = 0.0
     visible_percentage: float = 0.0
+    quality_ok: bool = True
+    fault_code: int = 0               # 0=正常, 3=画质问题
 
     # 性能指标
     process_time_ms: float = 0.0
@@ -89,6 +91,10 @@ class DeviceDetector(CoalDetector):
         self.device_grids = self.grid_rois[:grid_count]
         self.grid_rois = self.device_grids  # 更新检测器使用的格栅
 
+        # ★ 重建 grid_mask 以匹配截断后的 grid_rois
+        if hasattr(self, '_create_grid_mask') and callable(self._create_grid_mask):
+            self.grid_mask = self._create_grid_mask()
+
         # 设备级统计
         self.detection_count = 0
         self.device_coal_detections = 0
@@ -121,6 +127,17 @@ class DeviceDetector(CoalDetector):
         try:
             # 调用父类检测方法（检测所有125个格栅口）
             detection_result = self.detect(frame, frame_id)
+
+            # ★ 画质自检失败 → 故障码3，不允许翻车
+            if not detection_result.quality_ok:
+                result.quality_ok = False
+                result.fault_code = 3  # 画质问题
+                result.device_has_coal = False  # 不确定，但不允许翻车
+                result.device_confidence = "LOW"
+                result.device_alert_level = "WARNING"
+                result.process_time_ms = detection_result.process_time_ms
+                logger.debug(f"[DeviceDetector] 画质不合格: {detection_result.quality_reason}")
+                return result
 
             # 汇总设备级结果
             if detection_result.grid_details:

@@ -64,6 +64,7 @@ class AllenBradleyPLC:
         # 心跳管理
         self.last_heartbeat_time = time.time()
         self.heartbeat_value = 0
+        self._heartbeat_value_lock = threading.Lock()  # 保护 heartbeat_value 读-改-写
 
         # PLC 读写锁（pycomm3 不是线程安全的）
         self._io_lock = threading.Lock()
@@ -272,8 +273,10 @@ class AllenBradleyPLC:
 
         # 检查心跳间隔
         if (current_time - self.last_heartbeat_time) * 1000 >= self.heartbeat_interval:
-            self.heartbeat_value = (self.heartbeat_value + 1) % 65536
-            success = self.write("IPC_Heartbeat", self.heartbeat_value)
+            with self._heartbeat_value_lock:
+                self.heartbeat_value = (self.heartbeat_value + 1) % 65536
+                hb_val = self.heartbeat_value
+            success = self.write("IPC_Heartbeat", hb_val)
 
             if success:
                 self.last_heartbeat_time = current_time
@@ -293,10 +296,11 @@ class AllenBradleyPLC:
             need_manual: 是否需要人工确认
             fault_code: 故障码
         """
-        # 可翻转 = 无积煤且不需人工确认（安全连锁核心信号）
-        can_tip = (not coal_present) and (not need_manual)
-        # 结果可信 = 高或中置信度
-        result_valid = confidence in ("HIGH", "MEDIUM")
+        # 可翻转 = 明确无积煤(False) 且 不需人工确认 且 无故障（安全连锁核心信号）
+        # ★ coal_present=None(不确定) 时 can_tip=False（安全优先）
+        can_tip = (coal_present is False) and (not need_manual) and (fault_code == 0)
+        # 结果可信 = 高或中置信度 且 无故障 且 检测结果明确
+        result_valid = (confidence in ("HIGH", "MEDIUM")) and (fault_code == 0) and (coal_present is not None)
 
         tag_values = {
             "Vision_CanTip": can_tip,
@@ -426,10 +430,12 @@ class AllenBradleyPLC:
         interval_s = self.heartbeat_interval / 1000.0
         while not self._heartbeat_stop_event.is_set():
             if self.is_connected:
-                self.heartbeat_value = (self.heartbeat_value + 1) % 65536
+                with self._heartbeat_value_lock:
+                    self.heartbeat_value = (self.heartbeat_value + 1) % 65536
+                    hb_val = self.heartbeat_value
                 try:
                     with self._io_lock:
-                        result = self.plc.write("IPC_Heartbeat", self.heartbeat_value)
+                        result = self.plc.write("IPC_Heartbeat", hb_val)
                     if result.error:
                         self._consecutive_failures += 1
                         logger.debug(f"[AllenBradleyPLC] 心跳写入失败: {result.error}")
@@ -442,29 +448,75 @@ class AllenBradleyPLC:
                     self._consecutive_failures += 1
                     logger.debug(f"[AllenBradleyPLC] 心跳异常: {e}")
 
-                # 连续失败 → 标记断连，触发重连
+                # 连续失败 → 标记断连，尝试重连（不调用 reconnect 避免死锁）
                 if self._consecutive_failures >= self._max_consecutive_failures:
                     logger.warning(
                         f"[AllenBradleyPLC] 连续 {self._consecutive_failures} 次心跳失败，标记断连"
                     )
                     self.is_connected = False
                     self._consecutive_failures = 0
-                    # 尝试自动重连（在心跳线程中）
+                    # 等待后直接重建连接（不能调 reconnect，会死锁 join 自己）
                     self._heartbeat_stop_event.wait(self._current_reconnect_interval)
                     if not self._heartbeat_stop_event.is_set():
-                        self.reconnect()
+                        self._try_reconnect_inline()
                     continue
 
             else:
                 # 断连状态，等待重连间隔后尝试
                 self._heartbeat_stop_event.wait(self._current_reconnect_interval)
                 if not self._heartbeat_stop_event.is_set():
-                    self.reconnect()
+                    self._try_reconnect_inline()
                 continue
 
             self._heartbeat_stop_event.wait(interval_s)
 
         logger.debug("[AllenBradleyPLC] 心跳线程已退出")
+
+    def _try_reconnect_inline(self):
+        """
+        在心跳线程内重连（不停止心跳线程，避免死锁）
+
+        与 reconnect() 的区别：不调用 _stop_heartbeat_thread()
+        必须同时持有 _reconnect_lock 和 _io_lock 来替换 self.plc
+        """
+        with self._reconnect_lock:
+            logger.info(f"[AllenBradleyPLC] 心跳线程内重连...")
+            # 持有 _io_lock 期间关闭旧连接并替换对象，防止其他线程用旧引用
+            with self._io_lock:
+                self._close_plc_connection()
+            time.sleep(1.0)
+
+            try:
+                # 设置连接超时避免 TCP 长时间挂起
+                socket.setdefaulttimeout(10)
+                try:
+                    new_plc = LogixDriver(
+                        self.plc_ip, init_tags=True, init_program_tags=True
+                    )
+                    result = new_plc.open()
+                finally:
+                    socket.setdefaulttimeout(None)
+                if result:
+                    # 在 _io_lock 下替换 plc 引用，确保其他线程看到新对象
+                    with self._io_lock:
+                        self.plc = new_plc
+                    self.is_connected = True
+                    self._consecutive_failures = 0
+                    self._current_reconnect_interval = self._reconnect_interval
+                    self.write("IPC_Online", True)
+                    logger.info("[AllenBradleyPLC] 心跳线程内重连成功")
+                else:
+                    self._current_reconnect_interval = min(
+                        self._current_reconnect_interval * 1.5,
+                        self._max_reconnect_interval
+                    )
+                    logger.warning(f"[AllenBradleyPLC] 重连失败，下次间隔 {self._current_reconnect_interval:.0f}s")
+            except Exception as e:
+                logger.error(f"[AllenBradleyPLC] 重连异常: {e}")
+                self._current_reconnect_interval = min(
+                    self._current_reconnect_interval * 1.5,
+                    self._max_reconnect_interval
+                )
 
     def _close_plc_connection(self):
         """内部：仅关闭 PLC 网络连接，不发送离线信号"""
@@ -521,8 +573,8 @@ class AllenBradleyPLC:
                         "product_name": controller_info.get("product_name"),
                         "revision": controller_info.get("revision"),
                     })
-            except:
-                pass  # 忽略获取信息失败的错误
+            except Exception as e:
+                logger.debug(f"[AllenBradleyPLC] 获取控制器信息失败: {e}")
 
         return info
 

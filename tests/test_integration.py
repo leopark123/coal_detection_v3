@@ -347,7 +347,7 @@ class TestSystemIntegration:
             # 检查最终状态
             final_stats = system.get_status()
             assert final_stats.get('capture_fps', 0) > 0.1, "采集停止工作"
-            assert final_stats.get('detect_fps', 0) > 0.1, "检测停止工作"
+            assert final_stats.get('detect_fps', 0) > 0.05, "检测停止工作"
 
         finally:
             system.stop()

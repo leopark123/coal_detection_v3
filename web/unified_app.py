@@ -11,10 +11,12 @@ import os
 import sys
 import time
 import asyncio
+import atexit
+import signal
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 
@@ -31,7 +33,7 @@ from web.common import (
     encode_frame_jpeg_base64,
 )
 from web.state_manager import StateManager
-from web.admin_api import create_admin_router
+from web.admin_api import create_admin_router, verify_admin
 
 # 确保 loguru 输出到 stderr（uvicorn 可见）
 logger.remove()
@@ -73,6 +75,15 @@ async def lifespan(app: FastAPI):
 
     # 初始化所有硬件
     state_manager.initialize(devices_config, base_config, yaml_path=yaml_path)
+
+    # 注册 atexit 确保崩溃时也释放硬件
+    def _emergency_shutdown():
+        logger.warning("[UnifiedApp] atexit: 紧急释放硬件资源")
+        try:
+            state_manager.shutdown()
+        except Exception:
+            pass
+    atexit.register(_emergency_shutdown)
 
     yield
 
@@ -326,8 +337,8 @@ async def api_funnel_history(machine_id: str, funnel_id: str):
 
 
 @app.post("/api/machine/{machine_id}/vision/enable")
-async def api_vision_enable(machine_id: str):
-    """启用视觉采集"""
+async def api_vision_enable(machine_id: str, _=Depends(verify_admin)):
+    """启用视觉采集（需管理员鉴权）"""
     try:
         result = state_manager.set_vision_enabled(machine_id, True)
         return result
@@ -336,8 +347,8 @@ async def api_vision_enable(machine_id: str):
 
 
 @app.post("/api/machine/{machine_id}/vision/disable")
-async def api_vision_disable(machine_id: str):
-    """停用视觉采集（PLC 侧 Allow_Tip 强制=1）"""
+async def api_vision_disable(machine_id: str, _=Depends(verify_admin)):
+    """停用视觉采集（PLC 侧 Allow_Tip 强制=1，需管理员鉴权）"""
     try:
         result = state_manager.set_vision_enabled(machine_id, False)
         return result
