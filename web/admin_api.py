@@ -168,7 +168,7 @@ def create_admin_router(state_manager) -> APIRouter:
             mc.plc_heartbeat_interval_ms = req.plc_heartbeat_interval_ms
 
         state_manager._save_config()
-        return {"status": "ok", "message": f"翻车机 {machine_id} 已更新"}
+        return {"status": "ok", "message": f"翻车机 {machine_id} 配置已保存，硬件参数(PLC IP等)重启后生效"}
 
     @router.delete("/machines/{machine_id}")
     async def delete_machine(machine_id: str, x_admin_token: str = Header()):
@@ -213,7 +213,7 @@ def create_admin_router(state_manager) -> APIRouter:
             fc.grid_count = req.grid_count
 
         state_manager._save_config()
-        return {"status": "ok", "message": f"漏斗 {funnel_id} 已更新"}
+        return {"status": "ok", "message": f"漏斗 {funnel_id} 配置已保存，硬件参数(相机IP等)重启后生效"}
 
     @router.delete("/machines/{machine_id}/funnels/{funnel_id}")
     async def delete_funnel(machine_id: str, funnel_id: str, x_admin_token: str = Header()):

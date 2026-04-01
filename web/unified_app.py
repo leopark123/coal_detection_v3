@@ -35,9 +35,16 @@ from web.common import (
 from web.state_manager import StateManager
 from web.admin_api import create_admin_router, verify_admin
 
-# 确保 loguru 输出到 stderr（uvicorn 可见）
+# 日志配置：stderr（uvicorn 可见）+ 文件（崩溃后可追溯）
 logger.remove()
 logger.add(sys.stderr, level="DEBUG")
+logger.add(
+    str(Path(__file__).parent.parent / "logs" / "unified_{time:YYYY-MM-DD}.log"),
+    rotation="00:00",    # 每天零点切割
+    retention="30 days", # 保留 30 天
+    level="INFO",
+    encoding="utf-8",
+)
 
 # ═══════════════════════════════════════════════════════════════
 # 全局状态
@@ -264,6 +271,59 @@ async def funnel_ws(websocket: WebSocket, machine_id: str, funnel_id: str):
 # ═══════════════════════════════════════════════════════════════
 # REST API
 # ═══════════════════════════════════════════════════════════════
+_app_start_time = time.time()
+
+
+@app.get("/api/health")
+async def api_health():
+    """系统健康检查（用于外部监控/负载均衡）"""
+    import gc
+    uptime = time.time() - _app_start_time
+
+    health = {
+        "status": "ok",
+        "uptime_s": round(uptime),
+        "uptime_h": round(uptime / 3600, 1),
+        "machines": len(state_manager.machines),
+    }
+
+    # 内存
+    try:
+        import psutil
+        proc = psutil.Process()
+        mem = proc.memory_info()
+        health["rss_mb"] = round(mem.rss / 1024 / 1024, 1)
+        health["threads"] = proc.num_threads()
+        health["cpu_percent"] = proc.cpu_percent(interval=0.1)
+    except ImportError:
+        pass
+
+    # PLC 状态
+    plc_issues = []
+    for mid, ms in state_manager.machines.items():
+        if ms.plc and not ms.plc_connected:
+            plc_issues.append(mid)
+    if plc_issues:
+        health["plc_disconnected"] = plc_issues
+        health["status"] = "degraded"
+
+    # 相机状态
+    cam_issues = []
+    for mid, ms in state_manager.machines.items():
+        for fid, fs in ms.funnels.items():
+            if fs.camera and not getattr(fs.camera, 'is_connected', False):
+                cam_issues.append(f"{mid}/{fid}")
+    if cam_issues:
+        health["camera_disconnected"] = cam_issues
+        health["status"] = "degraded"
+
+    # GC 统计
+    gc_stats = gc.get_stats()
+    health["gc_collections"] = sum(s.get('collections', 0) for s in gc_stats)
+
+    return health
+
+
 @app.get("/api/overview")
 async def api_overview():
     """全局状态概览"""
@@ -380,7 +440,7 @@ async def api_capture_status(machine_id: str, funnel_id: str):
 
 
 @app.post("/api/machine/{machine_id}/funnel/{funnel_id}/capture_config")
-async def api_update_capture_config(request: Request, machine_id: str, funnel_id: str):
+async def api_update_capture_config(request: Request, machine_id: str, funnel_id: str, _=Depends(verify_admin)):
     """更新漏斗的窗口采集参数"""
     fs = state_manager.get_funnel_state(machine_id, funnel_id)
     if not fs:
@@ -389,14 +449,15 @@ async def api_update_capture_config(request: Request, machine_id: str, funnel_id
         return JSONResponse({"error": "窗口采集未初始化"}, status_code=400)
 
     body = await request.json()
-    allowed = {"cycle_interval_s", "window_duration_s", "pre_delay_s", "vote_threshold"}
+    # 采集时长由 PLC 控制，服务器侧只能调投票阈值
+    allowed = {"vote_threshold"}
     params = {k: float(v) for k, v in body.items() if k in allowed}
     fs.capture_controller.update_config(**params)
     return {"status": "ok", "updated": params}
 
 
 @app.post("/api/machine/{machine_id}/funnel/{funnel_id}/reset_stats")
-async def api_funnel_reset_stats(machine_id: str, funnel_id: str):
+async def api_funnel_reset_stats(machine_id: str, funnel_id: str, _=Depends(verify_admin)):
     """重置漏斗统计"""
     fs = state_manager.get_funnel_state(machine_id, funnel_id)
     if not fs:

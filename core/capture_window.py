@@ -34,10 +34,17 @@ class CapturePhase(str, Enum):
 
 @dataclass
 class CaptureWindowConfig:
-    """窗口采集配置"""
-    window_duration_s: float = 3.0    # 采集窗口时长（秒）
+    """
+    窗口采集配置
+
+    注意：采集起止时机完全由 PLC 控制（PLC_CaptureCmd），
+    服务器不做时间截止。以下 window_duration_s 仅用于 UI 显示。
+    max_capture_s 是安全上限，防止 PLC 故障导致永远采集。
+    """
+    window_duration_s: float = 3.0    # UI 显示用（实际由 PLC 控制）
     vote_threshold: float = 0.6       # 投票阈值（0-1，超过该比例报警才输出报警）
     poll_interval_s: float = 0.2      # 轮询 PLC 指令的间隔（秒）
+    max_capture_s: float = 60.0       # 安全上限：超过此时间强制停止采集（防 PLC 故障）
 
     # 兼容旧配置字段（不再使用但保留避免报错）
     cycle_interval_s: float = 30.0
@@ -189,7 +196,22 @@ class CaptureWindowController:
                     )
 
         elif self._phase == CapturePhase.CAPTURING:
-            # 轮询 PLC：只看 PLC 指令决定是否停止，不做时间判断
+            # 安全上限：防止 PLC 故障导致永远采集
+            capture_elapsed = now - self._window_start_time
+            if capture_elapsed >= self.config.max_capture_s:
+                logger.error(
+                    f"[CaptureWindow] 采集超过安全上限 {self.config.max_capture_s}s，强制停止！"
+                )
+                if self._frame_results:
+                    self._finalize_window()
+                    self._write_plc_state(self.STATE_COMPLETE)
+                    self._phase = CapturePhase.COMPLETE
+                else:
+                    self._phase = CapturePhase.IDLE
+                    self._write_plc_state(self.STATE_IDLE)
+                return self._phase
+
+            # 轮询 PLC：只看 PLC 指令决定是否停止
             if now - self._last_poll_time >= self.config.poll_interval_s:
                 self._last_poll_time = now
                 cmd = self._read_plc_cmd()
@@ -293,29 +315,59 @@ class CaptureWindowController:
             self._notify_complete()
             return
 
-        alarm_count = sum(1 for f in frames if f["has_coal"])
-        alarm_ratio = alarm_count / total
-        coal_grids_sum = sum(f["coal_grids"] for f in frames)
-        fault_codes = [f["fault_code"] for f in frames if f["fault_code"] != 0]
+        # 分离有效帧和故障帧
+        valid_frames = [f for f in frames if f["fault_code"] == 0]
+        fault_frames = [f for f in frames if f["fault_code"] != 0]
+        valid_count = len(valid_frames)
+
+        # 如果有效帧不足一半，整个窗口不可信
+        if valid_count < total * 0.5:
+            from collections import Counter
+            fault_codes = [f["fault_code"] for f in fault_frames]
+            most_common_fault = Counter(fault_codes).most_common(1)[0][0] if fault_codes else 3
+
+            self.last_window_result = WindowResult(
+                total_frames=total,
+                alarm_frames=0,
+                alarm_ratio=0.0,
+                is_alarm=False,
+                confidence="LOW",
+                fault_code=most_common_fault,
+                coal_grids_avg=0,
+                window_start=frames[0]["timestamp"],
+                window_end=frames[-1]["timestamp"],
+                frame_results=frames,
+            )
+            logger.warning(
+                f"[CaptureWindow] 窗口内有效帧不足: {valid_count}/{total}, "
+                f"故障帧{len(fault_frames)}, 故障码={most_common_fault}, 置信度=LOW"
+            )
+            self._notify_complete()
+            return
+
+        # 只用有效帧投票
+        alarm_count = sum(1 for f in valid_frames if f["has_coal"])
+        alarm_ratio = alarm_count / valid_count
+        coal_grids_sum = sum(f["coal_grids"] for f in valid_frames)
 
         # 投票判定
         is_alarm = alarm_ratio >= self.config.vote_threshold
 
         # 置信度（基于报警一致性）
-        # 离 0% 或 100% 越近，置信度越高
-        consistency = abs(alarm_ratio - 0.5) * 2  # 0.0~1.0，越大越一致
+        consistency = abs(alarm_ratio - 0.5) * 2  # 0.0~1.0
         if consistency >= 0.6:       # 报警率 <=20% 或 >=80%
             confidence = "HIGH"
         elif consistency >= 0.2:     # 报警率 <=40% 或 >=60%
             confidence = "MEDIUM"
-        else:                        # 报警率 40%~60%，模糊区间
+        else:                        # 报警率 40%~60%
             confidence = "LOW"
 
-        # 故障码：取窗口内出现最多的非零故障码
+        # 如果有故障帧但不占多数，降一级置信度
+        if fault_frames and confidence == "HIGH":
+            confidence = "MEDIUM"
+
+        # 故障码：有效帧为主时故障码=0
         fault_code = 0
-        if fault_codes:
-            from collections import Counter
-            fault_code = Counter(fault_codes).most_common(1)[0][0]
 
         result = WindowResult(
             total_frames=total,
@@ -333,7 +385,7 @@ class CaptureWindowController:
         self.last_window_result = result
 
         logger.info(
-            f"[CaptureWindow] 窗口判定: {total}帧, "
+            f"[CaptureWindow] 窗口判定: {total}帧(有效{valid_count},故障{len(fault_frames)}), "
             f"报警{alarm_count}帧({alarm_ratio:.0%}), "
             f"{'→ 报警' if is_alarm else '→ 正常'}, "
             f"置信度={confidence}"

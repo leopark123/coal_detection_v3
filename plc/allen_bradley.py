@@ -68,6 +68,7 @@ class AllenBradleyPLC:
 
         # PLC 读写锁（pycomm3 不是线程安全的）
         self._io_lock = threading.Lock()
+        self._io_lock_timeout = 5.0  # 锁等待超时（秒），防止死锁
 
         # 重连管理
         self._reconnect_lock = threading.Lock()
@@ -99,13 +100,24 @@ class AllenBradleyPLC:
         try:
             logger.info(f"[AllenBradleyPLC] 尝试连接: {self.plc_ip}")
 
-            # 创建连接（init_tags 确保 CompactLogix 1769-L16ER 标签发现正确）
-            self.plc = LogixDriver(
-                self.plc_ip, init_tags=True, init_program_tags=True
-            )
+            # 用线程包装连接，防止 TCP 长时间挂起（10 秒超时）
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
-            # 测试连接
-            result = self.plc.open()
+            def _do_connect():
+                plc_obj = LogixDriver(
+                    self.plc_ip, init_tags=True, init_program_tags=True
+                )
+                return plc_obj, plc_obj.open()
+
+            try:
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(_do_connect)
+                    self.plc, result = future.result(timeout=10)
+            except FutureTimeout:
+                logger.error(f"[AllenBradleyPLC] 连接超时(10s): {self.plc_ip}")
+                self.last_error = "连接超时"
+                self.is_connected = False
+                return False
 
             if result:
                 self.is_connected = True
@@ -152,9 +164,14 @@ class AllenBradleyPLC:
             if isinstance(value, str) and len(value) > 82:
                 value = value[:82]  # ControlLogix STRING 最大 82 字符
 
-            # 执行写入（加锁防并发）
-            with self._io_lock:
+            # 执行写入（加锁防并发，带超时防死锁）
+            if not self._io_lock.acquire(timeout=self._io_lock_timeout):
+                logger.warning(f"[AllenBradleyPLC] 写入 {tag} 获取锁超时，跳过")
+                return False
+            try:
                 result = self.plc.write(tag, value)
+            finally:
+                self._io_lock.release()
 
             if result.error:
                 logger.error(f"[AllenBradleyPLC] 写入失败 {tag}: {result.error}")
@@ -207,8 +224,13 @@ class AllenBradleyPLC:
             return None
 
         try:
-            with self._io_lock:
+            if not self._io_lock.acquire(timeout=self._io_lock_timeout):
+                logger.warning(f"[AllenBradleyPLC] 读取 {tag} 获取锁超时，跳过")
+                return None
+            try:
                 result = self.plc.read(tag)
+            finally:
+                self._io_lock.release()
 
             if result.error:
                 logger.error(f"[AllenBradleyPLC] 读取失败 {tag}: {result.error}")
@@ -247,9 +269,14 @@ class AllenBradleyPLC:
             return False
 
         try:
-            # pycomm3 支持批量写入（加锁防并发）
-            with self._io_lock:
+            # pycomm3 支持批量写入（加锁防并发，带超时）
+            if not self._io_lock.acquire(timeout=self._io_lock_timeout):
+                logger.warning("[AllenBradleyPLC] 批量写入获取锁超时，跳过")
+                return False
+            try:
                 results = self.plc.write(*list(tag_values.items()))
+            finally:
+                self._io_lock.release()
 
             success_count = 0
             for tag, result in zip(tag_values.keys(), results):
@@ -308,14 +335,18 @@ class AllenBradleyPLC:
             "Vision_ResultValid": result_valid,
         }
 
-        # 先更新心跳
-        self.update_heartbeat()
+        # 心跳由独立后台线程管理（_heartbeat_loop），这里不再重复递增
+        # 避免双重递增导致心跳跳号
 
         # 批量写入检测结果
         success = self.batch_write(tag_values)
 
         if success:
-            logger.info(f"[AllenBradleyPLC] 检测结果已发送 - 可翻转:{can_tip}, 故障码:{fault_code}")
+            logger.info(
+                f"[AllenBradleyPLC] 检测结果已发送 - "
+                f"可翻转:{can_tip}, 结果可信:{result_valid}, "
+                f"置信度:{confidence}, 故障码:{fault_code}"
+            )
         else:
             logger.error("[AllenBradleyPLC] 检测结果发送失败")
 
@@ -434,8 +465,14 @@ class AllenBradleyPLC:
                     self.heartbeat_value = (self.heartbeat_value + 1) % 65536
                     hb_val = self.heartbeat_value
                 try:
-                    with self._io_lock:
+                    if not self._io_lock.acquire(timeout=2.0):
+                        logger.debug("[AllenBradleyPLC] 心跳获取锁超时，跳过本次")
+                        self._heartbeat_stop_event.wait(interval_s)
+                        continue
+                    try:
                         result = self.plc.write("IPC_Heartbeat", hb_val)
+                    finally:
+                        self._io_lock.release()
                     if result.error:
                         self._consecutive_failures += 1
                         logger.debug(f"[AllenBradleyPLC] 心跳写入失败: {result.error}")
@@ -487,15 +524,24 @@ class AllenBradleyPLC:
             time.sleep(1.0)
 
             try:
-                # 设置连接超时避免 TCP 长时间挂起
-                socket.setdefaulttimeout(10)
-                try:
-                    new_plc = LogixDriver(
+                # 用线程包装连接，避免修改全局 socket.setdefaulttimeout
+                # （全局修改会影响相机、WebSocket 等其他网络连接）
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+
+                def _do_connect():
+                    plc_obj = LogixDriver(
                         self.plc_ip, init_tags=True, init_program_tags=True
                     )
-                    result = new_plc.open()
-                finally:
-                    socket.setdefaulttimeout(None)
+                    return plc_obj, plc_obj.open()
+
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(_do_connect)
+                    try:
+                        new_plc, result = future.result(timeout=10)
+                    except (FutureTimeout, Exception) as e:
+                        logger.warning(f"[AllenBradleyPLC] 重连超时(10s): {e}")
+                        new_plc = None
+                        result = None
                 if result:
                     # 在 _io_lock 下替换 plc 引用，确保其他线程看到新对象
                     with self._io_lock:

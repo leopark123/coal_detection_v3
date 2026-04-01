@@ -296,8 +296,14 @@ class DetectProcess:
         Returns:
             投票后的最终结果
         """
-        # 添加到历史记录
-        self.result_history.append(current_result)
+        # 添加到历史记录（转为 dict 保证一致性）
+        if hasattr(current_result, "to_dict"):
+            self.result_history.append(current_result.to_dict())
+        elif isinstance(current_result, dict):
+            self.result_history.append(current_result)
+        else:
+            from dataclasses import asdict
+            self.result_history.append(asdict(current_result))
 
         # 保持窗口大小
         window_size = self.config.VOTE_WINDOW_SIZE
@@ -308,21 +314,33 @@ class DetectProcess:
         if len(self.result_history) < self.config.VOTE_THRESHOLD:
             return current_result
 
-        # 统计投票
-        coal_votes = sum(1 for r in self.result_history if r.get("coal_present", False))
+        # 统计投票（兼容 dict 和 DetectionResult dataclass）
+        def _get(obj, key, default=None):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        coal_votes = sum(1 for r in self.result_history if _get(r, "has_coal", False))
         total_votes = len(self.result_history)
 
         # 投票决策
         voted_coal_present = coal_votes >= self.config.VOTE_THRESHOLD
 
-        # 生成最终结果
-        final_result = current_result.copy()
-        final_result["coal_present"] = voted_coal_present
+        # 生成最终结果（转为 dict 确保可序列化和可修改）
+        if hasattr(current_result, "to_dict"):
+            final_result = current_result.to_dict()
+        elif isinstance(current_result, dict):
+            final_result = current_result.copy()
+        else:
+            from dataclasses import asdict
+            final_result = asdict(current_result)
+
+        final_result["has_coal"] = voted_coal_present
 
         # 如果投票结果与当前检测不一致，降低置信度
-        if voted_coal_present != current_result.get("coal_present", False):
+        if voted_coal_present != _get(current_result, "has_coal", False):
             final_result["confidence"] = "LOW"
-            final_result["need_manual"] = True
+            final_result["need_manual_confirm"] = True
 
         return final_result
 

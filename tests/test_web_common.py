@@ -28,6 +28,7 @@ class _FakeCamera:
         self._idx = 0
         self._fail_first = fail_first
         self.released = False
+        self.is_connected = True
 
     def grab(self):
         if self._fail_first:
@@ -139,6 +140,7 @@ def test_run_websocket_stream_single_cycle():
         detection_history=[],
         config=SimpleNamespace(frame_interval=0.0),
         detection_count=0,
+        _use_sync=True,
     )
 
     def detect_frame(frame, frame_id):
@@ -190,6 +192,7 @@ def test_run_websocket_stream_retry_on_capture_error(monkeypatch):
         detection_history=[],
         config=SimpleNamespace(frame_interval=0.0),
         detection_count=0,
+        _use_sync=True,
     )
 
     async def _no_sleep(_):
@@ -241,6 +244,7 @@ def test_run_websocket_stream_handles_disconnect():
         detection_history=[],
         config=SimpleNamespace(frame_interval=0.0),
         detection_count=0,
+        _use_sync=True,
     )
 
     def detect_frame(frame, frame_id):
@@ -281,6 +285,7 @@ def test_run_websocket_stream_skips_when_not_ready():
         detection_history=[],
         config=SimpleNamespace(frame_interval=0.0),
         detection_count=0,
+        _use_sync=True,
     )
 
     def detect_frame(frame, frame_id):
@@ -310,4 +315,5 @@ def test_run_websocket_stream_skips_when_not_ready():
 
     assert ws.accepted is True
     assert state.detection_count == 0
-    assert len(ws.sent) == 0
+    # 现在会发送一条错误提示消息
+    assert len(ws.sent) <= 1

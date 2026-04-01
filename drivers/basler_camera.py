@@ -19,8 +19,13 @@
 import numpy as np
 import cv2
 import time
+import atexit
+import signal
 from typing import Optional
 from loguru import logger
+
+# 全局注册表：追踪所有打开的相机实例，确保进程退出时释放
+_active_cameras = []
 
 try:
     from pypylon import pylon
@@ -87,6 +92,9 @@ class BaslerCamera:
         self.converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
         logger.info(f"[BaslerCamera] 像素格式: {'Mono8 (灰度→BGR)' if self.is_mono else 'BGR8 (彩色)'}")
+
+        # 注册全局清理（确保进程退出时释放相机）
+        _active_cameras.append(self)
 
         # 自动连接
         self.connect()
@@ -171,6 +179,14 @@ class BaslerCamera:
             cam.Height.Value = self.height
         except Exception:
             logger.warning("[BaslerCamera] 无法设置分辨率，使用相机默认值")
+
+        # GigE 心跳超时：缩短到 3 秒（默认 10 秒）
+        # 进程崩溃后相机 3 秒即释放，不用等 30 秒
+        try:
+            cam.GevHeartbeatTimeout.Value = 3000
+            logger.info("[BaslerCamera] GigE 心跳超时: 3000ms")
+        except Exception:
+            logger.debug("[BaslerCamera] GigE 心跳超时设置跳过")
 
         # GigE 网络参数（先设网络，影响可达帧率）
         try:
@@ -310,6 +326,10 @@ class BaslerCamera:
 
             self.is_connected = False
 
+            # 从全局注册表移除
+            if self in _active_cameras:
+                _active_cameras.remove(self)
+
             elapsed = time.time() - self.grab_start_time
             if elapsed > 0 and self.total_frames > 0:
                 avg_fps = self.total_frames / elapsed
@@ -347,3 +367,34 @@ class BaslerCamera:
     def __del__(self):
         """析构函数"""
         self.release()
+
+
+# ═══════════════════════════════════════════════════════════════
+# 全局进程退出清理：确保相机一定释放
+# ═══════════════════════════════════════════════════════════════
+def _cleanup_all_cameras():
+    """进程退出时释放所有相机"""
+    for cam in list(_active_cameras):
+        try:
+            cam.release()
+            logger.debug(f"[BaslerCamera] atexit 释放: {cam.camera_ip}")
+        except Exception:
+            pass
+    _active_cameras.clear()
+
+
+atexit.register(_cleanup_all_cameras)
+
+
+def _signal_handler(signum, frame):
+    """信号处理：Ctrl+C / SIGTERM 时释放相机"""
+    logger.info(f"[BaslerCamera] 收到信号 {signum}，释放所有相机...")
+    _cleanup_all_cameras()
+
+
+# 注册信号（Windows 只支持 SIGINT/SIGTERM）
+try:
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+except (OSError, ValueError):
+    pass  # 某些环境下不支持

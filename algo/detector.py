@@ -398,23 +398,72 @@ class CoalDetector:
         )
     
     def _check_quality(self, frame: np.ndarray) -> Tuple[bool, str]:
-        """画面质量自检"""
+        """
+        画面质量自检（智能分区评估）
+
+        核心思路：不用全局 mean 一刀切，而是分析格栅区域是否"有内容"。
+        判断标准：暗但有纹理（标准差大）= 有内容可检测；暗且无纹理 = 真全黑。
+
+        检查项：
+        1. 绝对黑/白检测（极端情况快速拒绝）
+        2. 格栅 ROI 区域"可检测性"评估（亮度 + 对比度综合判断）
+        3. 自适应模糊检测（暗画面降低 laplacian 阈值）
+        """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         mean_val = gray.mean()
-        
-        # 全黑
-        if mean_val < 15:
-            return False, "画面全黑（曝光不足或遮挡）"
-        
-        # 全白
+        std_val = gray.std()
+
+        # ═══ 极端情况快速拒绝 ═══
+        # 真正全黑：mean < 5 且几乎无对比度
+        if mean_val < 5 and std_val < 3:
+            return False, f"画面全黑 (mean={mean_val:.1f}, std={std_val:.1f})"
+
+        # 全白过曝
         if mean_val > 240:
-            return False, "画面过曝"
-        
-        # 模糊检测
+            return False, f"画面过曝 (mean={mean_val:.1f})"
+
+        # ═══ 格栅 ROI 区域可检测性评估 ═══
+        if self.grid_rois and len(self.grid_rois) > 0:
+            roi_means = []
+            roi_stds = []
+            h, w = gray.shape[:2]
+            for roi in self.grid_rois:
+                x, y, rw, rh = roi
+                x1 = max(0, min(x, w - 1))
+                y1 = max(0, min(y, h - 1))
+                x2 = max(0, min(x + rw, w))
+                y2 = max(0, min(y + rh, h))
+                if x2 > x1 and y2 > y1:
+                    patch = gray[y1:y2, x1:x2]
+                    roi_means.append(patch.mean())
+                    roi_stds.append(patch.std())
+
+            if roi_means:
+                roi_mean = sum(roi_means) / len(roi_means)
+                roi_std = sum(roi_stds) / len(roi_stds)
+
+                # 格栅区域判断：亮度和对比度都极低 = 不可检测
+                # 只要有一定对比度（std > 5），说明有纹理/结构，可以检测
+                if roi_mean < 8 and roi_std < 5:
+                    return False, f"格栅区域全黑 (roi_mean={roi_mean:.1f}, roi_std={roi_std:.1f})"
+
+        # ═══ 自适应模糊检测 ═══
+        # 暗画面的 laplacian 天然偏低，阈值需要随亮度自适应
         laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-        if laplacian_var < 50:
-            return False, "画面模糊（可能镜头脏污）"
-        
+
+        # 自适应阈值：亮度越低，模糊阈值越低
+        # mean=100+ → 阈值50（正常光照）
+        # mean=30   → 阈值20
+        # mean=10   → 阈值8
+        blur_threshold = max(5, min(50, mean_val * 0.5))
+
+        if laplacian_var < blur_threshold and std_val < 8:
+            # 同时满足：模糊 + 无对比度 = 真模糊（不是单纯偏暗）
+            return False, (
+                f"画面模糊 (laplacian={laplacian_var:.1f}, "
+                f"threshold={blur_threshold:.1f}, std={std_val:.1f})"
+            )
+
         return True, "OK"
     
     def _align_ecc(self, frame: np.ndarray) -> np.ndarray:
