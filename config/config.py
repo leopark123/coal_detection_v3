@@ -70,14 +70,14 @@ class Config:
     DEV_MODE: bool = field(default_factory=_get_dev_mode_from_env)
     
     # ═══════════════════════════════════════════════════════════════
-    # 硬件参数（生产环境 - Basler acA1600-660gm）
+    # 硬件参数（生产环境 - Basler acA1600-60gm）
     # ═══════════════════════════════════════════════════════════════
     FRAME_WIDTH: int = 1600          # Basler acA1600-60gm (Mono8 灰度，驱动层转BGR)
     FRAME_HEIGHT: int = 1200
     CHANNELS: int = 3                # 驱动层 Mono8→BGR 转换，流水线统一 3 通道
     TARGET_FPS: float = 5.5          # GigE 带宽限制，1600×1200@Mono8 实测上限约 5.5 FPS
 
-    # 相机配置（Basler acA1600-660gm GigE）
+    # 相机配置（Basler acA1600-60gm GigE）
     CAMERA_TYPE: str = "basler"
     CAMERA_IP: str = "192.168.1.12"
     CAMERA_TIMEOUT_MS: int = 5000

@@ -9,7 +9,7 @@
 5. 错误处理和故障报告
 
 配置项 CAMERA_PIXEL_FORMAT：
-- "mono":  灰度相机（如 acA1600-660gm），Mono8→BGR 转换
+- "mono":  灰度相机（如 acA1600-60gm），Mono8→BGR 转换
 - "color": 彩色相机，直接输出 BGR8
 
 依赖：

@@ -8,14 +8,14 @@
 DEV_MODE: false
 
 # ═══════════════════════════════════════════════════════════════
-# 硬件参数（生产环境 - Basler acA1600-660gm）
+# 硬件参数（生产环境 - Basler acA1600-60gm）
 # ═══════════════════════════════════════════════════════════════
 FRAME_WIDTH: 1600   # Basler acA1600-60gm (Mono8 灰度，驱动层转BGR)
 FRAME_HEIGHT: 1200
 CHANNELS: 3         # 驱动层 Mono8→BGR 转换，流水线统一 3 通道
 TARGET_FPS: 5.5     # GigE 带宽限制，1600×1200@Mono8 实测上限约 5.5 FPS
 
-# 相机配置（Basler acA1600-660gm GigE，pypylon SDK）
+# 相机配置（Basler acA1600-60gm GigE，pypylon SDK）
 CAMERA_TYPE: "basler"
 CAMERA_IP: "192.168.1.12"
 CAMERA_TIMEOUT_MS: 5000

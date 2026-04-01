@@ -15,7 +15,7 @@
 | 类型 | 工业视觉检测系统 |
 | 环境 | 煤矿翻车机房（防爆、高粉尘） |
 | 核心目标 | 实时检测格栅积煤，端到端延迟 < 100ms |
-| 相机 | Basler acA1600-660gm (Mono8 灰度, GigE, IP: 192.168.1.12) |
+| 相机 | Basler acA1600-60gm (Mono8 灰度, GigE, IP: 192.168.1.12) |
 | PLC | AB CompactLogix 1769-L16ER/B B1B (Ethernet/IP, IP: 192.168.1.19) |
 | 本机 IP | 192.168.1.10 |
 
@@ -24,7 +24,7 @@
 ```
 语言：Python 3.10+
 视觉：OpenCV 4.8+ (可选 CUDA)
-相机：pypylon (Basler acA1600-660gm, 1600×1200, Mono8→BGR)
+相机：pypylon (Basler acA1600-60gm, 1600×1200, Mono8→BGR)
 通信：pycomm3 (AB PLC)
 Web：FastAPI + WebSocket
 日志：loguru
@@ -87,7 +87,7 @@ coal_detection/
 │   ├── __init__.py
 │   ├── factory.py          # 驱动工厂
 │   ├── mock_drivers.py     # Mock 驱动（开发用）
-│   └── basler_camera.py    # Basler GigE 相机驱动（acA1600-660gm）
+│   └── basler_camera.py    # Basler GigE 相机驱动（acA1600-60gm）
 │
 ├── algo/                   # 检测算法
 │   ├── __init__.py
@@ -169,14 +169,14 @@ coal_detection/
 
 | 特性 | 开发模式 (DEV) | 生产模式 (PROD) |
 |------|----------------|-----------------|
-| 相机 | MockCamera | HikvisionCamera |
-| PLC | MockPLC | AllenBradleyPLC |
+| 相机 | MockCamera | BaslerCamera (acA1600-60gm) |
+| PLC | MockPLC | AllenBradleyPLC (1769-L16ER) |
 | 分辨率 | 1024×768 | 1600×1200 |
-| 帧率 | 1 FPS | 10 FPS |
+| 帧率 | 1 FPS | 5.5 FPS (GigE 带宽限制) |
 | ECC 配准 | 禁用 | 启用 |
-| CUDA | 禁用 | 启用 |
-| 双缓冲 | 禁用 | 启用 |
-| 进程模式 | 单进程 | 多进程 |
+| CUDA | 禁用 | 可选 |
+| 采集模式 | 连续 | PLC 触发窗口采集 |
+| 进程模式 | 单进程 (Web) | 单进程 (unified_app) |
 
 ### 3.3 环境变量配置
 
