@@ -28,18 +28,19 @@ def create_camera(config):
             logger.info("📷 使用 BaslerCamera（生产模式）")
             return BaslerCamera(config)
         except ImportError:
-            logger.error("pypylon 未安装，回退到 MockCamera")
-            from .mock_drivers import MockCamera
-            return MockCamera(config)
+            logger.critical("pypylon 未安装！生产环境不允许回退到 MockCamera")
+            raise ImportError(
+                "生产环境必须安装 pypylon: pip install pypylon"
+            )
 
 
 def create_plc(config):
     """
     创建 PLC 通信实例
-    
+
     Args:
         config: 配置对象
-        
+
     Returns:
         PLC 实例（MockPLC 或 AllenBradleyPLC）
     """
@@ -54,9 +55,10 @@ def create_plc(config):
             logger.info("🔌 使用 AllenBradleyPLC（生产模式）")
             return AllenBradleyPLC(config)
         except ImportError:
-            logger.error("pycomm3 未安装，回退到 MockPLC")
-            from .mock_drivers import MockPLC
-            return MockPLC(config)
+            logger.critical("pycomm3 未安装！生产环境不允许回退到 MockPLC")
+            raise ImportError(
+                "生产环境必须安装 pycomm3: pip install pycomm3"
+            )
 
 
 def create_image_saver(config):

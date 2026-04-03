@@ -357,16 +357,17 @@ class DetectProcess:
             if hasattr(plc, 'send_detection_result'):
                 # 使用 Allen Bradley PLC 的批量发送
                 plc.send_detection_result(
-                    coal_present=result.get("coal_present", False),
+                    coal_present=result.get("has_coal", result.get("coal_present", False)),
                     confidence=result.get("confidence", "UNKNOWN"),
-                    need_manual=result.get("need_manual", True),
+                    need_manual=result.get("need_manual_confirm", result.get("need_manual", True)),
                     fault_code=result.get("fault_code", 0)
                 )
             else:
-                # 逐个写入点位
-                plc.write("Detection.CoalPresent", result.get("coal_present", False))
+                coal = result.get("has_coal", result.get("coal_present", False))
+                manual = result.get("need_manual_confirm", result.get("need_manual", True))
+                plc.write("Detection.CoalPresent", coal)
                 plc.write("Detection.Confidence", result.get("confidence", "UNKNOWN"))
-                plc.write("Detection.NeedManualConfirm", result.get("need_manual", True))
+                plc.write("Detection.NeedManualConfirm", manual)
                 plc.write("Detection.FaultCode", result.get("fault_code", 0))
 
                 # 更新心跳

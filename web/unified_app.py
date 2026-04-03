@@ -27,7 +27,6 @@ from config.config import Config
 from config.devices_config import DevicesConfig
 from web.common import (
     StreamAppState,
-    run_websocket_stream,
     mount_static_and_templates,
     append_bounded,
     encode_frame_jpeg_base64,
@@ -91,6 +90,9 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
     atexit.register(_emergency_shutdown)
+
+    # 启动后台检测 worker（独立于 WebSocket，确保无人看页面时也能检测）
+    state_manager.start_background_workers()
 
     yield
 
@@ -187,85 +189,78 @@ async def overview_ws(websocket: WebSocket):
 
 @app.websocket("/ws/funnel/{machine_id}/{funnel_id}")
 async def funnel_ws(websocket: WebSocket, machine_id: str, funnel_id: str):
-    """单漏斗视频流（复用 run_websocket_stream）"""
+    """
+    单漏斗视频流（纯展示模式）
+
+    检测由后台 worker 驱动，WebSocket 只负责：
+    1. 读取后台 worker 产出的 last_frame 和 last_result
+    2. 渲染叠加层并推送给浏览器
+    不抓帧、不检测、不驱动状态机。
+    """
+    from web.common import encode_frame_jpeg_base64
+
     fs = state_manager.get_funnel_state(machine_id, funnel_id)
     if not fs:
         await websocket.close(code=4004)
         return
 
     app_tag = f"[{machine_id}/{funnel_id}]"
+    await websocket.accept()
+    logger.info(f"{app_tag} WebSocket 展示流已连接")
 
-    def _detect_frame(frame, frame_id):
-        # 视觉停用时不检测
-        if not fs.vision_enabled:
-            return None
-        # 驱动窗口状态机，必须由 PLC 触发才采集
-        cc = fs.capture_controller
-        if cc:
-            cc.tick()
-            if not cc.should_capture():
-                return None
-        else:
-            # 没有采集控制器 = 不采集
-            return None
-        return fs.detector.detect_device(frame, frame_id)
+    last_seen_id = 0
+    try:
+        while True:
+            frame = fs.last_frame
+            result = fs.last_result
+            current_id = fs._last_result_id
 
-    def _on_result(result):
-        if result is None:
-            return  # 窗口外跳过
-        fs.detection_count += 1
-        if getattr(result, "device_has_coal", False):
-            fs.coal_detections += 1
-        fs.last_result = result
+            if frame is not None:
+                is_new = result is not None and current_id != last_seen_id
+                if is_new:
+                    last_seen_id = current_id
 
-        # 喂入窗口控制器
-        cc = fs.capture_controller
-        if cc and cc.should_capture():
-            cc.feed_result({
-                "has_coal": getattr(result, "device_has_coal", False),
-                "coal_grids": getattr(result, "coal_grids", 0),
-                "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
-                "fault_code": getattr(result, "fault_code", 0),
-            })
+                # 始终用最新的 result 做叠加（窗口外保持上次的检测框）
+                vis = frame
+                if result is not None and fs.detector and hasattr(fs.detector, "visualize_device"):
+                    try:
+                        vis = fs.detector.visualize_device(frame, result)
+                    except Exception:
+                        vis = frame
 
-    def _build_history(result, frame_id):
-        return {
-            "frame_id": frame_id,
-            "timestamp": time.time(),
-            "device_has_coal": getattr(result, "device_has_coal", False),
-            "coal_grids": getattr(result, "coal_grids", 0),
-            "coal_percentage": getattr(result, "coal_percentage", 0.0),
-            "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
-            "process_time": getattr(result, "process_time_ms", 0.0),
-        }
+                quality = 85 if is_new else 50
+                img_b64 = encode_frame_jpeg_base64(vis, quality=quality)
 
-    def _render_frame(frame, result):
-        if hasattr(fs.detector, "visualize_device"):
-            return fs.detector.visualize_device(frame, result)
-        return frame
+                resp = {
+                    "image": img_b64,
+                    "detection_count": fs.detection_count,
+                    "coal_detections": fs.coal_detections,
+                }
+                if result is not None and hasattr(result, "to_dict"):
+                    resp["result"] = result.to_dict()
+                if fs.detector and hasattr(fs.detector, "get_device_statistics"):
+                    resp["statistics"] = fs.detector.get_device_statistics()
+                cc = fs.capture_controller
+                if cc:
+                    resp["capture_phase"] = cc.phase.value
+                if not is_new:
+                    resp["idle"] = True
 
-    def _build_response(result, image_base64):
-        resp = {
-            "image": image_base64,
-            "detection_count": fs.detection_count,
-            "coal_detections": fs.coal_detections,
-        }
-        if hasattr(result, "to_dict"):
-            resp["result"] = result.to_dict()
-        if hasattr(fs.detector, "get_device_statistics"):
-            resp["statistics"] = fs.detector.get_device_statistics()
-        return resp
+                try:
+                    await asyncio.wait_for(
+                        websocket.send_json(resp), timeout=5.0
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"{app_tag} WebSocket 发送超时")
 
-    await run_websocket_stream(
-        websocket,
-        app_tag=app_tag,
-        state=fs,
-        detect_frame=_detect_frame,
-        on_result=_on_result,
-        build_history_entry=_build_history,
-        render_frame=_render_frame,
-        build_response_data=_build_response,
-    )
+            await asyncio.sleep(0.2)  # 5 FPS 展示帧率
+
+    except WebSocketDisconnect:
+        logger.info(f"{app_tag} WebSocket 展示流已断开")
+    except asyncio.TimeoutError:
+        logger.warning(f"{app_tag} WebSocket 发送超时")
+    except Exception as e:
+        logger.error(f"{app_tag} WebSocket 错误: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -298,23 +293,35 @@ async def api_health():
     except ImportError:
         pass
 
-    # PLC 状态
-    plc_issues = []
+    # PLC 状态（区分未初始化和已断连）
+    plc_missing = []   # 创建失败，plc=None
+    plc_disconnected = []  # 创建成功但断连
     for mid, ms in state_manager.machines.items():
-        if ms.plc and not ms.plc_connected:
-            plc_issues.append(mid)
-    if plc_issues:
-        health["plc_disconnected"] = plc_issues
+        if not ms.plc:
+            plc_missing.append(mid)
+        elif not ms.plc_connected:
+            plc_disconnected.append(mid)
+    if plc_missing:
+        health["plc_not_initialized"] = plc_missing
+        health["status"] = "degraded"
+    if plc_disconnected:
+        health["plc_disconnected"] = plc_disconnected
         health["status"] = "degraded"
 
-    # 相机状态
-    cam_issues = []
+    # 相机状态（区分未初始化和已断连）
+    cam_missing = []
+    cam_disconnected = []
     for mid, ms in state_manager.machines.items():
         for fid, fs in ms.funnels.items():
-            if fs.camera and not getattr(fs.camera, 'is_connected', False):
-                cam_issues.append(f"{mid}/{fid}")
-    if cam_issues:
-        health["camera_disconnected"] = cam_issues
+            if not fs.camera:
+                cam_missing.append(f"{mid}/{fid}")
+            elif not getattr(fs.camera, 'is_connected', False):
+                cam_disconnected.append(f"{mid}/{fid}")
+    if cam_missing:
+        health["camera_not_initialized"] = cam_missing
+        health["status"] = "degraded"
+    if cam_disconnected:
+        health["camera_disconnected"] = cam_disconnected
         health["status"] = "degraded"
 
     # GC 统计
@@ -401,6 +408,8 @@ async def api_vision_enable(machine_id: str, _=Depends(verify_admin)):
     """启用视觉采集（需管理员鉴权）"""
     try:
         result = state_manager.set_vision_enabled(machine_id, True)
+        if "error" in result:
+            return JSONResponse(result, status_code=503)
         return result
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
@@ -411,6 +420,8 @@ async def api_vision_disable(machine_id: str, _=Depends(verify_admin)):
     """停用视觉采集（PLC 侧 Allow_Tip 强制=1，需管理员鉴权）"""
     try:
         result = state_manager.set_vision_enabled(machine_id, False)
+        if "error" in result:
+            return JSONResponse(result, status_code=503)
         return result
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
@@ -451,7 +462,14 @@ async def api_update_capture_config(request: Request, machine_id: str, funnel_id
     body = await request.json()
     # 采集时长由 PLC 控制，服务器侧只能调投票阈值
     allowed = {"vote_threshold"}
-    params = {k: float(v) for k, v in body.items() if k in allowed}
+    try:
+        params = {k: float(v) for k, v in body.items() if k in allowed}
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"参数格式错误: {e}"}, status_code=400)
+    # 校验
+    vt = params.get("vote_threshold")
+    if vt is not None and not (0.0 < vt <= 1.0):
+        return JSONResponse({"error": f"vote_threshold={vt} 必须在 (0, 1] 之间"}, status_code=400)
     fs.capture_controller.update_config(**params)
     return {"status": "ok", "updated": params}
 

@@ -14,7 +14,7 @@
 import os
 import time
 import hashlib
-from typing import Optional
+from typing import Optional, Dict
 
 from fastapi import APIRouter, Request, HTTPException, Header
 from pydantic import BaseModel
@@ -27,12 +27,24 @@ from config.devices_config import MachineConfig, FunnelConfig
 # ═══════════════════════════════════════════════════════════════
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
+# 启动时警告弱密码
+if ADMIN_PASSWORD == "admin123":
+    logger.warning(
+        "[AdminAPI] ⚠️ 使用默认管理员密码 admin123！"
+        "生产环境请设置环境变量 ADMIN_PASSWORD"
+    )
+
 
 def _hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 
 ADMIN_TOKEN = _hash_password(ADMIN_PASSWORD)
+
+# 登录失败计数（简单防暴力破解）
+_login_failures: Dict[str, list] = {}  # ip -> [timestamp, ...]
+_MAX_FAILURES = 5
+_LOCKOUT_SECONDS = 300  # 5 分钟
 
 
 def verify_admin(x_admin_token: Optional[str] = Header(None)):
@@ -98,10 +110,29 @@ def create_admin_router(state_manager) -> APIRouter:
 
     # ─── 认证 ───
     @router.post("/auth")
-    async def admin_auth(req: AuthRequest):
-        """验证管理员密码，返回 token"""
+    async def admin_auth(req: AuthRequest, request: Request):
+        """验证管理员密码，返回 token（带登录失败限制）"""
+        client_ip = request.client.host if request.client else "unknown"
+
+        # 检查是否被锁定
+        import time as _time
+        now = _time.time()
+        if client_ip in _login_failures:
+            recent = [t for t in _login_failures[client_ip] if now - t < _LOCKOUT_SECONDS]
+            _login_failures[client_ip] = recent
+            if len(recent) >= _MAX_FAILURES:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"登录失败次数过多，请 {_LOCKOUT_SECONDS // 60} 分钟后重试"
+                )
+
         if req.password == ADMIN_PASSWORD:
+            _login_failures.pop(client_ip, None)  # 成功后清除记录
             return {"token": ADMIN_TOKEN}
+
+        # 记录失败
+        _login_failures.setdefault(client_ip, []).append(now)
+        logger.warning(f"[AdminAPI] 登录失败 (IP: {client_ip})")
         raise HTTPException(status_code=401, detail="密码错误")
 
     # ─── 翻车机管理 ───
@@ -149,6 +180,8 @@ def create_admin_router(state_manager) -> APIRouter:
             return {"status": "ok", "message": f"翻车机 {req.name} 已添加"}
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     @router.put("/machines/{machine_id}")
     async def update_machine(machine_id: str, req: MachineUpdateRequest, x_admin_token: str = Header()):
@@ -178,6 +211,8 @@ def create_admin_router(state_manager) -> APIRouter:
             return {"status": "ok", "message": f"翻车机 {machine_id} 已删除"}
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     # ─── 漏斗管理 ───
     @router.post("/machines/{machine_id}/funnels")
@@ -193,6 +228,8 @@ def create_admin_router(state_manager) -> APIRouter:
             return {"status": "ok", "message": f"漏斗 {req.name} 已添加到 {machine_id}"}
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     @router.put("/machines/{machine_id}/funnels/{funnel_id}")
     async def update_funnel(machine_id: str, funnel_id: str, req: FunnelUpdateRequest, x_admin_token: str = Header()):
@@ -223,6 +260,8 @@ def create_admin_router(state_manager) -> APIRouter:
             return {"status": "ok", "message": f"漏斗 {funnel_id} 已删除"}
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     # ─── 检测参数 ───
     @router.get("/thresholds")
@@ -236,7 +275,10 @@ def create_admin_router(state_manager) -> APIRouter:
         params = {k: v for k, v in req.model_dump().items() if v is not None}
         if not params:
             raise HTTPException(status_code=400, detail="未提供任何参数")
-        applied = state_manager.update_thresholds(params)
+        try:
+            applied = state_manager.update_thresholds(params)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return {"status": "ok", "applied": applied}
 
     # ─── 系统信息 ───

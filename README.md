@@ -244,13 +244,35 @@ pytest tests/ -v
 | C1 | CRITICAL | DetectionResult 继承 dict 但底层为空，len()/keys() 静默返回空 | 移除 dict 继承，纯 dataclass + dict-like 方法 |
 | C2 | CRITICAL | 心跳值两个线程同时递增无锁 | 新增 _heartbeat_value_lock |
 | C3 | CRITICAL | coal_present=None 时 not None=True → 允许翻车 | 改为 coal_present is False 严格判断 |
-| C4 | CRITICAL | detect_frame 和 camera.grab 共用线程池导致饥饿 | 独立 _detect_executor（8 workers） |
-| — | CRITICAL | 画质失败时 DeviceDetector 丢失 quality_ok → 允许翻车 | 增加 quality_ok/fault_code 传递 |
-| H1 | HIGH | grid_rois 截断后 grid_mask 过时，覆盖率低估 | 截断后重建 grid_mask |
-| H2 | HIGH | 窗口投票置信度逻辑重叠 | 用 consistency 公式重写 |
-| H3 | HIGH | PLC 重连时 self.plc 替换不受锁保护 | 在 _io_lock 下替换 |
-| H4 | HIGH | 相机断开后 WebSocket 循环永不退出 | 连续 30 次失败后 break |
-| H5 | HIGH | 视觉启停 API 无鉴权 | 添加 Depends(verify_admin) |
+| C4 | CRITICAL | detect_frame 和 camera.grab 共用线程池导致饥饿 | 三个独立线程池 + 超时保护 |
+| C5 | CRITICAL | 画质失败时 DeviceDetector 丢失 quality_ok → 允许翻车 | quality_ok/fault_code 传递 |
+| C6 | CRITICAL | 没人看页面时不执行 PLC 触发检测 | 后台 worker 线程独立于 WebSocket |
+| H1-H13 | HIGH | 13 项（详见整改文档） | 全部修复 |
+| M1-M8 | MEDIUM | 8 项（详见整改文档） | 全部修复 |
+
+共修复 **27 个安全漏洞**（6 CRITICAL + 13 HIGH + 8 MEDIUM）。
+
+详细清单见 `docs/improvement_report_v3.0.docx` 和 `docs/整改记录与已知限制.md`。
+
+## 稳定性验证
+
+| 指标 | 修复前 | 修复后 |
+|------|--------|--------|
+| 连续运行 | 每 2 小时崩溃 | 49.4 小时无崩溃 |
+| 内存 | 持续增长 | 177-198MB 稳定 |
+| 线程 | 可能泄漏 | 63-69 稳定 |
+| 采集周期 | — | 2710+ 次正常循环 |
+| 测试 | — | 116 passed, 0 failed |
+
+## 文档
+
+| 文档 | 位置 |
+|------|------|
+| 项目规范 | CLAUDE.md |
+| 部署报告 | docs/翻车机积煤检测系统_部署报告_V3.0.docx |
+| 整改记录 | docs/improvement_report_v3.0.docx |
+| 整改记录(MD) | docs/整改记录与已知限制.md |
+| PLC 点位表 | docs/PLC点位表配置.md |
 
 ## License
 

@@ -230,6 +230,13 @@ class DeviceDetector(CoalDetector):
                 'alert_level': 'NORMAL'
             }
 
+    def reset_statistics(self):
+        """重置设备级统计"""
+        self.detection_count = 0
+        self.device_coal_detections = 0
+        self.avg_process_time = 0.0
+        logger.info(f"[DeviceDetector] 统计已重置: {self.device_id}")
+
     def get_device_statistics(self) -> Dict[str, Any]:
         """获取设备统计信息"""
         device_coal_rate = (self.device_coal_detections / self.detection_count

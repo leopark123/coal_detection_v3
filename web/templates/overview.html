@@ -138,68 +138,110 @@
 
         function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
+        var phaseMap = {'idle':'空闲','delay':'延时','capturing':'采集中','judging':'判定','complete':'完成'};
+        var _initialized = false;
+
         function renderMachines(machines) {
             if (!machines || machines.length === 0) {
                 machineGrid.innerHTML = '<div class="empty-state"><h2>无翻车机配置</h2><p>前往 <a href="/settings" style="color:var(--accent)">系统设置</a> 添加翻车机</p></div>';
                 summaryBar.innerHTML = '';
+                _initialized = false;
                 return;
             }
 
-            // Summary
-            const totalMachines = machines.length;
-            const totalFunnels = machines.reduce(function(s, m) { return s + m.funnel_count; }, 0);
-            const totalDetections = machines.reduce(function(s, m) { return s + m.funnels.reduce(function(s2, f) { return s2 + f.detection_count; }, 0); }, 0);
-            const alarms = machines.filter(function(m) { return m.alert_level === 'CRITICAL' || m.alert_level === 'WARNING'; }).length;
+            // Summary — 只更新数字
+            var totalMachines = machines.length;
+            var totalFunnels = machines.reduce(function(s,m){return s+m.funnel_count;},0);
+            var totalDetections = machines.reduce(function(s,m){return s+m.funnels.reduce(function(s2,f){return s2+f.detection_count;},0);},0);
+            var alarms = machines.filter(function(m){return m.alert_level==='CRITICAL'||m.alert_level==='WARNING';}).length;
 
-            summaryBar.innerHTML =
-                '<div class="summary-item"><span class="summary-num">' + totalMachines + '</span>翻车机</div>'
-                + '<div class="summary-item"><span class="summary-num">' + totalFunnels + '</span>漏斗</div>'
-                + '<div class="summary-item"><span class="summary-num">' + totalDetections.toLocaleString() + '</span>检测帧</div>'
-                + (alarms > 0 ? '<div class="summary-item"><span class="summary-num" style="color:var(--danger)">' + alarms + '</span>报警</div>' : '');
+            if (!document.getElementById('sum-machines')) {
+                summaryBar.innerHTML =
+                    '<div class="summary-item"><span class="summary-num" id="sum-machines">'+totalMachines+'</span>翻车机</div>'
+                    +'<div class="summary-item"><span class="summary-num" id="sum-funnels">'+totalFunnels+'</span>漏斗</div>'
+                    +'<div class="summary-item"><span class="summary-num" id="sum-detections">'+totalDetections.toLocaleString()+'</span>检测帧</div>'
+                    +'<div class="summary-item" id="sum-alarm-wrap"'+(alarms?'':' style="display:none"')+'><span class="summary-num" id="sum-alarms" style="color:var(--danger)">'+alarms+'</span>报警</div>';
+            } else {
+                document.getElementById('sum-machines').textContent = totalMachines;
+                document.getElementById('sum-funnels').textContent = totalFunnels;
+                document.getElementById('sum-detections').textContent = totalDetections.toLocaleString();
+                document.getElementById('sum-alarms').textContent = alarms;
+                document.getElementById('sum-alarm-wrap').style.display = alarms ? '' : 'none';
+            }
 
-            // Cards (with staggered animation)
-            machineGrid.innerHTML = machines.map(function(m, idx) {
-                const ac = 'alert-' + (m.alert_level || 'UNKNOWN');
-                const pc = m.plc_connected ? 'online' : 'offline';
-                const pulseClass = (m.alert_level === 'CRITICAL') ? ' alert-pulse' : '';
-
-                var phaseMap = {'idle':'空闲','delay':'延时','capturing':'采集中','judging':'判定'};
-                const fhtml = m.funnels.map(function(f) {
-                    const fac = 'alert-' + (f.alert_level || 'UNKNOWN');
-                    const ci = f.total_grids > 0 ? f.coal_grids + '/' + f.total_grids : '--';
-                    const cp = f.capture_phase || 'idle';
-                    const cpText = phaseMap[cp] || cp;
-                    const cpStyle = cp === 'capturing' ? 'color:var(--accent);font-weight:600' : '';
-                    return '<div class="funnel-cell ' + fac + '">'
-                        + '<div class="funnel-name">' + esc(f.name) + '</div>'
-                        + '<div class="funnel-stat">积煤 <span class="value">' + ci + '</span></div>'
-                        + '<div class="funnel-stat">帧数 <span class="value">' + f.detection_count + '</span></div>'
-                        + '<div class="funnel-stat" style="' + cpStyle + '">' + cpText + '</div>'
-                        + '</div>';
+            // 首次：创建 DOM 骨架（带动画）
+            if (!_initialized) {
+                machineGrid.innerHTML = machines.map(function(m, idx) {
+                    var fhtml = m.funnels.map(function(f) {
+                        return '<div class="funnel-cell alert-UNKNOWN" id="fc-'+m.id+'-'+f.id+'">'
+                            +'<div class="funnel-name">'+esc(f.name)+'</div>'
+                            +'<div class="funnel-stat">积煤 <span class="value" id="fcoal-'+m.id+'-'+f.id+'">--</span></div>'
+                            +'<div class="funnel-stat">帧数 <span class="value" id="fdet-'+m.id+'-'+f.id+'">0</span></div>'
+                            +'<div class="funnel-stat" id="fphase-'+m.id+'-'+f.id+'">空闲</div>'
+                            +'</div>';
+                    }).join('');
+                    return '<div class="machine-card alert-NORMAL animate-in" id="mc-'+m.id+'" style="animation-delay:'+(idx*0.08)+'s">'
+                        +'<div class="machine-header" onclick="location.href=\'/machine/'+m.id+'\'">'
+                        +'<span class="machine-name">'+esc(m.name)+'</span>'
+                        +'<div style="display:flex;align-items:center;gap:10px;">'
+                        +'<span class="alert-badge alert-NORMAL" id="mbadge-'+m.id+'">正常</span>'
+                        +'<div class="plc-status"><div class="plc-dot offline" id="plcdot-'+m.id+'"></div><span id="plctxt-'+m.id+'">PLC</span></div>'
+                        +'</div></div>'
+                        +'<div class="funnel-grid" onclick="location.href=\'/machine/'+m.id+'\'">'+fhtml+'</div>'
+                        +'<div class="machine-footer">'
+                        +'<span id="mfooter-'+m.id+'"></span>'
+                        +'<button class="btn-vision btn-vision-on" id="vbtn-'+m.id+'" onclick="event.stopPropagation();toggleVision(\''+m.id+'\',true)">● 采集中</button>'
+                        +'</div></div>';
                 }).join('');
+                _initialized = true;
+            }
 
-                const td = m.funnels.reduce(function(s, f) { return s + f.detection_count; }, 0);
-                const tc = m.funnels.reduce(function(s, f) { return s + f.coal_detections; }, 0);
+            // 增量更新：只改文本和 class
+            machines.forEach(function(m) {
+                var card = document.getElementById('mc-'+m.id);
+                if (!card) return;
 
-                const ve = m.vision_enabled !== false;
-                const vBtnClass = ve ? 'btn-vision-on' : 'btn-vision-off';
-                const vBtnText = ve ? '采集中' : '已停用';
-                const vBtnIcon = ve ? '●' : '○';
+                var ac = 'alert-'+(m.alert_level||'UNKNOWN');
+                var pulse = m.alert_level==='CRITICAL' ? ' alert-pulse' : '';
+                card.className = 'machine-card '+ac+pulse;
 
-                return '<div class="machine-card ' + ac + pulseClass + ' animate-in" style="animation-delay:' + (idx * 0.08) + 's">'
-                    + '<div class="machine-header" onclick="location.href=\'/machine/' + m.id + '\'">'
-                    + '<span class="machine-name">' + esc(m.name) + '</span>'
-                    + '<div style="display:flex;align-items:center;gap:10px;">'
-                    + '<span class="alert-badge ' + ac + '">' + (alertMap[m.alert_level] || m.alert_level) + '</span>'
-                    + '<div class="plc-status"><div class="plc-dot ' + pc + '"></div>' + (m.plc_connected ? 'PLC' : 'PLC 离线') + '</div>'
-                    + '</div></div>'
-                    + '<div class="funnel-grid" onclick="location.href=\'/machine/' + m.id + '\'">' + fhtml + '</div>'
-                    + '<div class="machine-footer">'
-                    + '<span>' + m.funnel_count + ' 漏斗 · ' + td.toLocaleString() + ' 帧 / ' + tc + ' 报警</span>'
-                    + '<button class="btn-vision ' + vBtnClass + '" onclick="event.stopPropagation();toggleVision(\'' + m.id + '\',' + ve + ')">'
-                    + vBtnIcon + ' ' + vBtnText + '</button>'
-                    + '</div></div>';
-            }).join('');
+                var badge = document.getElementById('mbadge-'+m.id);
+                if (badge) { badge.className='alert-badge '+ac; badge.textContent=alertMap[m.alert_level]||m.alert_level; }
+
+                var plcDot = document.getElementById('plcdot-'+m.id);
+                var plcTxt = document.getElementById('plctxt-'+m.id);
+                if (plcDot) plcDot.className = 'plc-dot '+(m.plc_connected?'online':'offline');
+                if (plcTxt) plcTxt.textContent = m.plc_connected?'PLC':'PLC 离线';
+
+                var td = m.funnels.reduce(function(s,f){return s+f.detection_count;},0);
+                var tc = m.funnels.reduce(function(s,f){return s+f.coal_detections;},0);
+                var footer = document.getElementById('mfooter-'+m.id);
+                if (footer) footer.textContent = m.funnel_count+' 漏斗 · '+td.toLocaleString()+' 帧 / '+tc+' 报警';
+
+                var ve = m.vision_enabled !== false;
+                var vbtn = document.getElementById('vbtn-'+m.id);
+                if (vbtn) {
+                    vbtn.className = 'btn-vision '+(ve?'btn-vision-on':'btn-vision-off');
+                    vbtn.textContent = (ve?'● 采集中':'○ 已停用');
+                    vbtn.onclick = function(e){e.stopPropagation();toggleVision(m.id,ve);};
+                }
+
+                m.funnels.forEach(function(f) {
+                    var cell = document.getElementById('fc-'+m.id+'-'+f.id);
+                    if (cell) cell.className = 'funnel-cell alert-'+(f.alert_level||'UNKNOWN');
+                    var coal = document.getElementById('fcoal-'+m.id+'-'+f.id);
+                    if (coal) coal.textContent = f.total_grids>0 ? f.coal_grids+'/'+f.total_grids : '--';
+                    var det = document.getElementById('fdet-'+m.id+'-'+f.id);
+                    if (det) det.textContent = f.detection_count;
+                    var phase = document.getElementById('fphase-'+m.id+'-'+f.id);
+                    if (phase) {
+                        var cp = f.capture_phase||'idle';
+                        phase.textContent = phaseMap[cp]||cp;
+                        phase.style.color = cp==='capturing'?'var(--accent)':'';
+                        phase.style.fontWeight = cp==='capturing'?'600':'';
+                    }
+                });
+            });
         }
 
         // Vision enable/disable toggle

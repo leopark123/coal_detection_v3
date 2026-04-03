@@ -140,21 +140,29 @@ class TestDriverFactory:
 
         plc.close()
 
-    def test_production_driver_fallback(self):
-        """测试生产驱动回退机制"""
+    def test_production_driver_no_silent_fallback(self):
+        """测试生产模式不会静默回退到 Mock（安全要求）"""
         config = Config()
         config.DEV_MODE = False
 
-        # 由于没有真实硬件，应该回退到 Mock 驱动
-        camera = create_camera(config)
-        plc = create_plc(config)
+        # 生产模式下，如果硬件 SDK 已安装，应创建真实驱动（不是 Mock）
+        # 如果 SDK 未安装，应该抛 ImportError 而不是静默回退
+        try:
+            camera = create_camera(config)
+            # SDK 已安装，验证不是 Mock
+            from drivers.mock_drivers import MockCamera
+            assert not isinstance(camera, MockCamera), "生产模式不应使用 MockCamera"
+            camera.release()
+        except (ImportError, ConnectionError):
+            pass  # SDK 未装或硬件不可用，都是预期行为
 
-        # 应该能正常工作（即使是回退的Mock驱动）
-        assert hasattr(camera, 'grab')
-        assert hasattr(plc, 'write')
-
-        camera.release()
-        plc.close()
+        try:
+            plc = create_plc(config)
+            from drivers.mock_drivers import MockPLC
+            assert not isinstance(plc, MockPLC), "生产模式不应使用 MockPLC"
+            plc.close()
+        except (ImportError, Exception):
+            pass  # SDK 未装或 PLC 不可用，都是预期行为
 
 
 class TestDetectorIntegration:

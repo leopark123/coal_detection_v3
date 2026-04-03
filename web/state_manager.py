@@ -11,6 +11,9 @@
   └── ...
 """
 
+import asyncio
+import threading
+import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Any, List
 
@@ -20,7 +23,7 @@ from config.config import Config
 from config.devices_config import DevicesConfig, MachineConfig, FunnelConfig, build_funnel_config
 from drivers.factory import create_camera, create_plc
 from algo.device_detector import DeviceDetector
-from web.common import StreamAppState
+from web.common import StreamAppState, append_bounded
 from core.capture_window import CaptureWindowController, CaptureWindowConfig
 
 
@@ -37,8 +40,10 @@ class FunnelState(StreamAppState):
         self.machine_id = machine_id
         self.funnel_id = funnel_id
         self.last_result = None
+        self.last_frame = None           # 后台 worker 最新抓的帧（供 WebSocket 展示）
+        self._last_result_id: int = 0    # 结果版本号（WebSocket 用来判断是否有新结果）
         self.coal_detections: int = 0
-        self.vision_enabled: bool = True  # 视觉采集启用状态
+        self.vision_enabled: bool = True
         self.capture_controller: Optional[CaptureWindowController] = None
 
 
@@ -86,6 +91,8 @@ class StateManager:
         self.devices_config: Optional[DevicesConfig] = None
         self.base_config: Optional[Config] = None
         self._yaml_path: Optional[str] = None
+        self._bg_workers: Dict[str, threading.Thread] = {}  # 后台检测 worker
+        self._bg_stop_event = threading.Event()
 
     def initialize(self, devices_config: DevicesConfig, base_config: Config, yaml_path: str = None):
         """
@@ -110,6 +117,8 @@ class StateManager:
             try:
                 ms.plc = create_plc(plc_cfg)
                 logger.info(f"[StateManager] PLC {mc.plc_ip} 已连接 ({mc.name})")
+            except ImportError:
+                raise  # 生产环境依赖缺失，必须终止启动
             except Exception as e:
                 logger.error(f"[StateManager] PLC {mc.plc_ip} 连接失败: {e}")
 
@@ -127,6 +136,7 @@ class StateManager:
 
     def shutdown(self):
         """释放所有资源"""
+        self.stop_background_workers()
         for ms in self.machines.values():
             for fs in ms.funnels.values():
                 fs.stop_runtime(app_tag=f"[{fs.machine_id}/{fs.funnel_id}]")
@@ -138,6 +148,171 @@ class StateManager:
 
         self.machines.clear()
         logger.info("[StateManager] 所有资源已释放")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 后台检测 worker（独立于 WebSocket，确保无人看页面时也能检测）
+    # ═══════════════════════════════════════════════════════════════
+
+    def start_background_workers(self):
+        """
+        为每个已就绪的漏斗启动后台检测线程。
+
+        后台 worker 持续驱动：tick() → grab → detect → feed_result → PLC 写入
+        即使没有浏览器连接也能响应 PLC 采集指令。
+        """
+        self._bg_stop_event.clear()
+        for mid, ms in self.machines.items():
+            for fid, fs in ms.funnels.items():
+                if not fs.is_running:
+                    continue
+                key = f"{mid}/{fid}"
+                t = threading.Thread(
+                    target=self._bg_detection_loop,
+                    args=(ms, fs, key),
+                    daemon=True,
+                    name=f"bg-detect-{key}",
+                )
+                t.start()
+                self._bg_workers[key] = t
+                logger.info(f"[StateManager] 后台检测 worker 已启动: {key}")
+
+    def stop_background_workers(self):
+        """停止所有后台检测 worker"""
+        self._bg_stop_event.set()
+        for key, t in self._bg_workers.items():
+            t.join(timeout=5.0)
+            if t.is_alive():
+                logger.warning(f"[StateManager] 后台 worker {key} 未能及时退出")
+        self._bg_workers.clear()
+        logger.info("[StateManager] 所有后台 worker 已停止")
+
+    def _bg_detection_loop(self, ms: "MachineState", fs: "FunnelState", tag: str):
+        """
+        单个漏斗的后台检测循环。
+
+        职责：
+        1. 驱动 CaptureWindowController 状态机 (tick)
+        2. 在采集窗口内抓帧、检测、喂结果
+        3. 窗口结束后由 on_window_complete 回调写 PLC
+
+        与 WebSocket 流的关系：
+        - 后台 worker 负责检测逻辑和 PLC 写入（核心功能）
+        - WebSocket 流负责视频推送和 UI 展示（展示功能）
+        - 两者共享 fs.last_result，WebSocket 流读取后台产生的结果
+        """
+        logger.info(f"[BgWorker:{tag}] 启动")
+        interval = getattr(fs.config, 'frame_interval', 0.1)
+
+        while not self._bg_stop_event.is_set() and fs.is_running:
+            try:
+                # 视觉停用时休眠
+                if not fs.vision_enabled:
+                    self._bg_stop_event.wait(1.0)
+                    continue
+
+                cc = fs.capture_controller
+                if not cc:
+                    self._bg_stop_event.wait(1.0)
+                    continue
+
+                # 无相机时不驱动状态机（避免多漏斗争抢同一组 PLC 标签）
+                if not fs.camera or not getattr(fs.camera, 'is_connected', False):
+                    self._bg_stop_event.wait(2.0)
+                    continue
+
+                # 驱动状态机
+                cc.tick()
+
+                if cc.should_capture():
+                    # 在采集窗口内：抓帧 → 检测 → 喂结果
+                    if not fs.camera or not getattr(fs.camera, 'is_connected', False):
+                        self._bg_stop_event.wait(0.5)
+                        continue
+
+                    try:
+                        frame = fs.camera.grab()
+                    except Exception:
+                        self._bg_stop_event.wait(0.5)
+                        continue
+
+                    try:
+                        result = fs.detector.detect_device(frame, fs.detection_count)
+                    except Exception as e:
+                        logger.error(f"[BgWorker:{tag}] 检测异常: {e}")
+                        self._bg_stop_event.wait(0.5)
+                        continue
+
+                    # 更新状态
+                    fs.detection_count += 1
+                    if getattr(result, "device_has_coal", False):
+                        fs.coal_detections += 1
+                    fs.last_result = result
+                    fs.last_frame = frame
+                    fs._last_result_id += 1
+
+                    # 写入历史记录
+                    history_entry = {
+                        "frame_id": fs.detection_count,
+                        "timestamp": time.time(),
+                        "device_has_coal": getattr(result, "device_has_coal", False),
+                        "coal_grids": getattr(result, "coal_grids", 0),
+                        "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
+                        "process_time": getattr(result, "process_time_ms", 0.0),
+                    }
+                    append_bounded(fs.detection_history, history_entry, max_items=100)
+
+                    # 喂入窗口控制器
+                    cc.feed_result({
+                        "has_coal": getattr(result, "device_has_coal", False),
+                        "coal_grids": getattr(result, "coal_grids", 0),
+                        "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
+                        "fault_code": getattr(result, "fault_code", 0),
+                    })
+
+                    # 控制帧率
+                    self._bg_stop_event.wait(interval)
+                else:
+                    # 窗口外：低频抓一帧供预览（不做检测）
+                    if fs.camera and getattr(fs.camera, 'is_connected', False):
+                        try:
+                            fs.last_frame = fs.camera.grab()
+                        except Exception:
+                            pass
+                    self._bg_stop_event.wait(0.5)
+
+            except Exception as e:
+                logger.error(f"[BgWorker:{tag}] 循环异常: {e}")
+                self._bg_stop_event.wait(2.0)
+
+        logger.info(f"[BgWorker:{tag}] 已退出")
+
+    def _start_funnel_worker(self, ms: "MachineState", fs: "FunnelState"):
+        """为单个漏斗启动后台 worker（如果条件满足）"""
+        if not fs.is_running:
+            return
+        key = f"{ms.machine_id}/{fs.funnel_id}"
+        if key in self._bg_workers and self._bg_workers[key].is_alive():
+            return  # 已在运行
+        t = threading.Thread(
+            target=self._bg_detection_loop,
+            args=(ms, fs, key),
+            daemon=True,
+            name=f"bg-detect-{key}",
+        )
+        t.start()
+        self._bg_workers[key] = t
+        logger.info(f"[StateManager] 后台 worker 已启动: {key}")
+
+    def _stop_funnel_worker(self, machine_id: str, funnel_id: str):
+        """停止单个漏斗的后台 worker"""
+        key = f"{machine_id}/{funnel_id}"
+        t = self._bg_workers.pop(key, None)
+        if t and t.is_alive():
+            t.join(timeout=3.0)
+            if t.is_alive():
+                logger.warning(f"[StateManager] 后台 worker {key} 未能及时退出")
+            else:
+                logger.info(f"[StateManager] 后台 worker 已停止: {key}")
 
     # ═══════════════════════════════════════════════════════════════
     # 动态增删（管理员 API 调用）
@@ -168,6 +343,10 @@ class StateManager:
 
         self.machines[mc.id] = ms
 
+        # 启动后台 worker
+        for fid, fs in ms.funnels.items():
+            self._start_funnel_worker(ms, fs)
+
         # 同步到配置并持久化
         self.devices_config.add_machine(mc)
         self._save_config()
@@ -180,9 +359,11 @@ class StateManager:
         if not ms:
             raise ValueError(f"翻车机 {machine_id} 不存在")
 
-        # 停止所有漏斗
-        for fs in ms.funnels.values():
-            fs.stop_runtime(app_tag=f"[{fs.machine_id}/{fs.funnel_id}]")
+        # 停止后台 worker + 漏斗
+        for fid, fs in ms.funnels.items():
+            fs.is_running = False  # 让 worker 退出循环
+            self._stop_funnel_worker(machine_id, fid)
+            fs.stop_runtime(app_tag=f"[{machine_id}/{fid}]")
 
         # 关闭 PLC
         if ms.plc and hasattr(ms.plc, "close"):
@@ -209,6 +390,11 @@ class StateManager:
 
         self._create_funnel(ms, ms.machine_config, fc)
 
+        # 启动后台 worker
+        fs = ms.funnels.get(fc.id)
+        if fs:
+            self._start_funnel_worker(ms, fs)
+
         # 同步到配置并持久化
         self.devices_config.add_funnel(machine_id, fc)
         self._save_config()
@@ -224,6 +410,8 @@ class StateManager:
         if not fs:
             raise ValueError(f"漏斗 {funnel_id} 不存在于 {machine_id}")
 
+        fs.is_running = False  # 让 worker 退出
+        self._stop_funnel_worker(machine_id, funnel_id)
         fs.stop_runtime(app_tag=f"[{machine_id}/{funnel_id}]")
         del ms.funnels[funnel_id]
 
@@ -245,10 +433,20 @@ class StateManager:
             "GRID_VISIBLE_THRESHOLD", "COAL_COVERAGE_THRESHOLD",
             "VOTE_WINDOW_SIZE", "VOTE_THRESHOLD",
         }
+        # 边界校验
+        validators = {
+            "GRID_VISIBLE_THRESHOLD": lambda v: 0.0 < v <= 1.0,
+            "COAL_COVERAGE_THRESHOLD": lambda v: 0.0 < v <= 1.0,
+            "VOTE_WINDOW_SIZE": lambda v: isinstance(v, (int, float)) and 1 <= v <= 20,
+            "VOTE_THRESHOLD": lambda v: isinstance(v, (int, float)) and 1 <= v <= 20,
+        }
         applied = {}
         for key, value in params.items():
             if key not in allowed:
                 continue
+            validator = validators.get(key)
+            if validator and not validator(value):
+                raise ValueError(f"参数 {key}={value} 超出有效范围")
             # 更新 base_config
             if hasattr(self.base_config, key):
                 setattr(self.base_config, key, value)
@@ -258,6 +456,13 @@ class StateManager:
                     if fs.config and hasattr(fs.config, key):
                         setattr(fs.config, key, value)
             applied[key] = value
+
+        # 组合约束校验：VOTE_THRESHOLD 不能大于 VOTE_WINDOW_SIZE
+        cfg = self.base_config or Config()
+        vt = applied.get("VOTE_THRESHOLD", getattr(cfg, "VOTE_THRESHOLD", 3))
+        vw = applied.get("VOTE_WINDOW_SIZE", getattr(cfg, "VOTE_WINDOW_SIZE", 5))
+        if vt > vw:
+            raise ValueError(f"VOTE_THRESHOLD({vt}) 不能大于 VOTE_WINDOW_SIZE({vw})")
 
         logger.info(f"[StateManager] 阈值已更新: {applied}")
         return applied
@@ -301,15 +506,48 @@ class StateManager:
             elif enabled and fs.capture_controller:
                 fs.capture_controller.start()
 
-        # 通知 PLC
-        if ms.plc and hasattr(ms.plc, "set_vision_enable"):
-            ms.plc.set_vision_enable(enabled)
-        elif ms.plc and hasattr(ms.plc, "write"):
-            ms.plc.write("Vision_Enable", enabled)
-            if not enabled:
+        # 通知 PLC（检查写入结果，失败则回滚）
+        if not ms.plc:
+            # PLC 不存在，回滚并报错
+            for fs in ms.funnels.values():
+                fs.vision_enabled = not enabled
+                if fs.capture_controller:
+                    if not enabled:
+                        fs.capture_controller.start()
+                    else:
+                        fs.capture_controller.stop()
+            logger.error(f"[StateManager] PLC 不存在，无法切换 Vision_Enable")
+            return {
+                "machine_id": machine_id,
+                "vision_enabled": not enabled,
+                "error": "PLC 未连接，操作失败",
+            }
+
+        plc_ok = False
+        if hasattr(ms.plc, "set_vision_enable"):
+            plc_ok = ms.plc.set_vision_enable(enabled)
+        elif hasattr(ms.plc, "write"):
+            plc_ok = ms.plc.write("Vision_Enable", enabled)
+            if plc_ok and not enabled:
                 ms.plc.write("Vision_CanTip", True)
                 ms.plc.write("Vision_FaultCode", 0)
                 ms.plc.write("Vision_ResultValid", True)
+
+        if not plc_ok:
+            # PLC 写入失败，回滚内存状态
+            for fs in ms.funnels.values():
+                fs.vision_enabled = not enabled
+                if fs.capture_controller:
+                    if not enabled:
+                        fs.capture_controller.start()
+                    else:
+                        fs.capture_controller.stop()
+            logger.error(f"[StateManager] PLC 写入 Vision_Enable={enabled} 失败，已回滚")
+            return {
+                "machine_id": machine_id,
+                "vision_enabled": not enabled,
+                "error": "PLC 写入失败，操作已回滚",
+            }
 
         status = "启用" if enabled else "停用"
         logger.info(f"[StateManager] 视觉采集已{status}: {ms.machine_config.name}")
@@ -340,6 +578,8 @@ class StateManager:
 
         try:
             fs.camera = create_camera(funnel_cfg)
+        except ImportError:
+            raise  # 生产环境依赖缺失，必须终止启动
         except Exception as e:
             logger.error(f"[StateManager] 相机 {fc.camera_ip} 连接失败: {e}")
 
@@ -376,13 +616,21 @@ class StateManager:
         ms.funnels[fc.id] = fs
 
     def _save_config(self):
-        """内部：将当前拓扑配置持久化到 devices.yaml"""
+        """
+        内部：将当前拓扑配置持久化到 devices.yaml
+
+        Raises:
+            RuntimeError: 保存失败时抛出，调用方需处理
+        """
         if self._yaml_path:
             try:
                 self.devices_config.to_yaml(self._yaml_path)
                 logger.debug(f"[StateManager] 配置已保存: {self._yaml_path}")
             except Exception as e:
                 logger.error(f"[StateManager] 配置保存失败: {e}")
+                raise RuntimeError(
+                    f"配置保存失败（内存已生效但未持久化，重启后丢失）: {e}"
+                ) from e
 
     # ═══════════════════════════════════════════════════════════════
     # 查询方法
@@ -418,7 +666,7 @@ class StateManager:
                 cap_phase = "idle"
                 cap_remaining = 0
                 if fs.capture_controller:
-                    fs.capture_controller.tick()
+                    # tick() 只由后台 worker 驱动，这里只读取状态
                     cap_phase = fs.capture_controller.phase.value
                     cap_remaining = round(fs.capture_controller.window_remaining, 1)
                 funnel_data = {
