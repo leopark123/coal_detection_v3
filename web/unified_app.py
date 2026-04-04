@@ -17,7 +17,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from loguru import logger
 
 # 项目根目录
@@ -179,7 +179,13 @@ async def overview_ws(websocket: WebSocket):
     try:
         while True:
             data = state_manager.get_overview_data()
-            await websocket.send_json({"machines": data})
+            try:
+                await asyncio.wait_for(
+                    websocket.send_json({"machines": data}),
+                    timeout=5.0,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("[UnifiedApp] 总览 WebSocket 发送超时")
             await asyncio.sleep(2.0)
     except WebSocketDisconnect:
         logger.info("[UnifiedApp] 总览 WebSocket 已断开")
@@ -355,6 +361,40 @@ async def api_machine_status(machine_id: str):
     }
 
 
+@app.get("/api/machine/{machine_id}/faults")
+async def api_machine_faults(machine_id: str):
+    """翻车机及其漏斗的故障详情"""
+    ms = state_manager.get_machine_state(machine_id)
+    if not ms:
+        return JSONResponse({"error": "翻车机不存在"}, status_code=404)
+
+    faults = []
+    # PLC 故障
+    if not ms.plc_connected:
+        plc_err = ms.fault_info.get("plc", {}).get("error", "连接断开")
+        plc_since = ms.fault_info.get("plc", {}).get("since")
+        faults.append({
+            "type": "plc", "device": ms.machine_config.name,
+            "message": f"PLC 离线: {plc_err or '连接断开'}",
+            "since": plc_since,
+        })
+
+    # 漏斗故障
+    for fid, fs in ms.funnels.items():
+        fc = next((f for f in ms.machine_config.funnels if f.id == fid), None)
+        fname = fc.name if fc else fid
+        cam_info = fs.fault_info.get("camera", {})
+        if cam_info.get("status") == "disconnected":
+            faults.append({
+                "type": "camera", "device": fname,
+                "message": f"相机断开: {cam_info.get('error', '未知')}",
+                "since": cam_info.get("since"),
+                "reconnect_attempts": cam_info.get("reconnect_attempts", 0),
+            })
+
+    return {"machine_id": machine_id, "faults": faults, "fault_count": len(faults)}
+
+
 @app.get("/api/machine/{machine_id}/funnel/{funnel_id}/status")
 async def api_funnel_status(machine_id: str, funnel_id: str):
     """漏斗状态"""
@@ -369,6 +409,20 @@ async def api_funnel_status(machine_id: str, funnel_id: str):
         "detection_count": fs.detection_count,
         "coal_detections": fs.coal_detections,
     }
+
+
+@app.get("/api/machine/{machine_id}/funnel/{funnel_id}/snapshot")
+async def api_snapshot(machine_id: str, funnel_id: str):
+    """漏斗最新帧快照（JPEG，用于总览页缩略图）"""
+    import cv2
+    fs = state_manager.get_funnel_state(machine_id, funnel_id)
+    if not fs or fs.last_frame is None:
+        return Response(status_code=204)
+    try:
+        _, buf = cv2.imencode('.jpg', fs.last_frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        return Response(content=buf.tobytes(), media_type="image/jpeg")
+    except Exception:
+        return Response(status_code=204)
 
 
 @app.get("/api/machine/{machine_id}/funnel/{funnel_id}/statistics")

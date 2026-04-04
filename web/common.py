@@ -158,8 +158,11 @@ async def run_websocket_stream(
         reason = "相机未连接" if not cam_connected else "检测器/配置缺失"
         logger.warning(f"{app_tag} 推流条件不满足({reason})")
         try:
-            await websocket.send_json({"error": reason, "retry_after": 60})
-        except Exception:
+            await asyncio.wait_for(
+                websocket.send_json({"error": reason, "retry_after": 60}),
+                timeout=_WS_SEND_TIMEOUT,
+            )
+        except (asyncio.TimeoutError, Exception):
             pass
         return
 

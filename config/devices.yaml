@@ -12,6 +12,10 @@ machines:
     camera_timeout_ms: 5000
     grid_count: 125
     grid_config_path: config/grid_manual.yaml
+    capture_cycle_s: 30.0
+    capture_window_s: 3.0
+    capture_delay_s: 2.0
+    capture_vote_threshold: 0.6
   - id: funnel-2
     name: 2#漏斗
     camera_ip: 192.168.1.13
@@ -19,6 +23,43 @@ machines:
     camera_timeout_ms: 5000
     grid_count: 125
     grid_config_path: config/grid_manual.yaml
+    capture_cycle_s: 30.0
+    capture_window_s: 3.0
+    capture_delay_s: 2.0
+    capture_vote_threshold: 0.6
+  - id: funnel-3
+    name: 3#漏斗
+    camera_ip: 192.168.1.14
+    pixel_format: mono
+    camera_timeout_ms: 5000
+    grid_count: 125
+    grid_config_path: config/grid_manual.yaml
+    capture_cycle_s: 30.0
+    capture_window_s: 3.0
+    capture_delay_s: 2.0
+    capture_vote_threshold: 0.6
+  - id: funnel-4
+    name: 4#漏斗
+    camera_ip: 192.168.1.15
+    pixel_format: mono
+    camera_timeout_ms: 5000
+    grid_count: 125
+    grid_config_path: config/grid_manual.yaml
+    capture_cycle_s: 30.0
+    capture_window_s: 3.0
+    capture_delay_s: 2.0
+    capture_vote_threshold: 0.6
+  - id: funnel-5
+    name: 5#漏斗
+    camera_ip: 192.168.1.16
+    pixel_format: mono
+    camera_timeout_ms: 5000
+    grid_count: 125
+    grid_config_path: config/grid_manual.yaml
+    capture_cycle_s: 30.0
+    capture_window_s: 3.0
+    capture_delay_s: 2.0
+    capture_vote_threshold: 0.6
 - id: machine-2
   name: 2#翻车机
   plc_ip: 192.168.1.20

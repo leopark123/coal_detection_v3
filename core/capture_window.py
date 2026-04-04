@@ -207,8 +207,16 @@ class CaptureWindowController:
                     self._write_plc_state(self.STATE_COMPLETE)
                     self._phase = CapturePhase.COMPLETE
                 else:
-                    self._phase = CapturePhase.IDLE
-                    self._write_plc_state(self.STATE_IDLE)
+                    # 零帧超时：必须 fail-safe，写故障结果到 PLC
+                    self.last_window_result = WindowResult(
+                        fault_code=3,
+                        confidence="LOW",
+                        is_alarm=False,
+                    )
+                    logger.error("[CaptureWindow] 安全上限超时且零帧，写 fail-safe 结果")
+                    self._notify_complete()  # 触发回调写 PLC（fault_code=3 → can_tip=False）
+                    self._write_plc_state(self.STATE_COMPLETE)
+                    self._phase = CapturePhase.COMPLETE
                 return self._phase
 
             # 轮询 PLC：只看 PLC 指令决定是否停止

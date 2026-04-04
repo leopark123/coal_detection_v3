@@ -9,27 +9,28 @@
 
         .header { padding: 0 24px; height: 56px; }
 
-        /* Login overlay */
-        .login-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .login-box { background: var(--bg-card); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px; width: 380px; text-align: center; box-shadow: var(--shadow-hover); }
-        .login-box h2 { margin-bottom: 24px; font-size: 18px; font-weight: 600; }
+        /* Login overlay — light modal */
+        .login-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .login-box { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 36px; width: 380px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+        .login-box h2 { margin-bottom: 24px; font-size: 18px; font-weight: 600; color: var(--text-primary); }
         .login-box input { width: 100%; padding: 11px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; margin-bottom: 14px; transition: border-color var(--transition); }
-        .login-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .login-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         .login-error { color: var(--danger); font-size: 13px; margin-bottom: 8px; display: none; }
 
         /* Layout */
         .main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; min-height: calc(100vh - 56px); }
 
-        .sidebar { background: var(--bg-card); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-y: auto; }
+        /* Sidebar — white */
+        .sidebar { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-y: auto; box-shadow: var(--shadow); }
         .sidebar-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; }
 
         .tree-item { padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; transition: all var(--transition); }
-        .tree-item:hover { background: rgba(74, 158, 255, 0.06); }
-        .tree-item.active { background: var(--accent-glow); border: 1px solid var(--accent); }
+        .tree-item:hover { background: var(--bg-input); }
+        .tree-item.active { background: var(--accent-light); border: 1px solid var(--accent); }
         .tree-machine { font-weight: 600; font-size: 14px; }
         .tree-funnel { padding-left: 24px; font-size: 12px; color: var(--text-secondary); }
         .tree-add { color: var(--accent); font-size: 12px; cursor: pointer; padding: 6px 12px; border-radius: var(--radius-sm); transition: background var(--transition); }
-        .tree-add:hover { background: var(--accent-glow); }
+        .tree-add:hover { background: var(--accent-light); }
 
         .dot { margin-right: 6px; }
 
@@ -41,8 +42,6 @@
         .threshold-label { width: 200px; font-size: 13px; }
         .threshold-row input[type=range] { flex: 1; accent-color: var(--accent); }
         .threshold-value { width: 60px; text-align: right; font-family: "SF Mono", "Fira Code", monospace; font-size: 13px; color: var(--accent); font-weight: 600; }
-
-        /* uses .toast from theme.css */
 
         @media (max-width: 768px) { .main { grid-template-columns: 1fr; } }
     </style>
@@ -178,11 +177,11 @@
                     const fDot = f.is_running ? 'dot-ok' : 'dot-off';
                     return '<div class="tree-item tree-funnel" onclick="showEditFunnel(\'' + m.id + '\',\'' + f.id + '\'); event.stopPropagation();">'
                         + '<span><span class="dot ' + fDot + '"></span>' + esc(f.name) + '</span>'
-                        + '<span style="color:#666;font-size:11px;">' + f.camera_ip + '</span></div>';
+                        + '<span style="color:#999;font-size:11px;">' + f.camera_ip + '</span></div>';
                 }).join('');
                 return '<div class="tree-item tree-machine" onclick="showEditMachine(\'' + m.id + '\')">'
                     + '<span><span class="dot ' + plcDot + '"></span>' + esc(m.name) + '</span>'
-                    + '<span style="color:#666;font-size:11px;">' + m.funnel_count + ' 漏斗</span></div>'
+                    + '<span style="color:#999;font-size:11px;">' + m.funnel_count + ' 漏斗</span></div>'
                     + funnelsHtml
                     + '<div class="tree-add" onclick="showAddFunnel(\'' + m.id + '\'); event.stopPropagation();">+ 添加漏斗</div>';
             }).join('');

@@ -40,11 +40,17 @@ class FunnelState(StreamAppState):
         self.machine_id = machine_id
         self.funnel_id = funnel_id
         self.last_result = None
-        self.last_frame = None           # 后台 worker 最新抓的帧（供 WebSocket 展示）
-        self._last_result_id: int = 0    # 结果版本号（WebSocket 用来判断是否有新结果）
+        self.last_frame = None
+        self._last_result_id: int = 0
         self.coal_detections: int = 0
         self.vision_enabled: bool = True
         self.capture_controller: Optional[CaptureWindowController] = None
+        # 故障信息
+        self.fault_info: Dict[str, Any] = {
+            "camera": {"status": "unknown", "error": None, "since": None, "reconnect_attempts": 0},
+            "detector": {"status": "unknown"},
+        }
+        self._reconnect_attempts: int = 0
 
 
 @dataclass
@@ -54,6 +60,9 @@ class MachineState:
     machine_config: MachineConfig
     plc: Any = None
     funnels: Dict[str, FunnelState] = field(default_factory=dict)
+    fault_info: Dict[str, Any] = field(default_factory=lambda: {
+        "plc": {"status": "unknown", "error": None, "since": None},
+    })
 
     @property
     def is_any_alarm(self) -> bool:
@@ -215,10 +224,51 @@ class StateManager:
                     self._bg_stop_event.wait(1.0)
                     continue
 
-                # 无相机时不驱动状态机（避免多漏斗争抢同一组 PLC 标签）
+                # 无相机或断连时自动重连
+                # 策略：快速5次(每10秒) → 慢速(每60秒)永不放弃
                 if not fs.camera or not getattr(fs.camera, 'is_connected', False):
-                    self._bg_stop_event.wait(2.0)
-                    continue
+                    FAST_MAX = 5
+                    FAST_INTERVAL = 10.0
+                    SLOW_INTERVAL = 60.0
+
+                    # 记录断开时间
+                    if fs.fault_info["camera"]["status"] != "disconnected":
+                        fs.fault_info["camera"] = {
+                            "status": "disconnected",
+                            "error": getattr(fs.camera, 'last_error', None) if fs.camera else "相机未初始化",
+                            "since": time.time(),
+                            "reconnect_attempts": 0,
+                        }
+
+                    if not fs.camera or not hasattr(fs.camera, 'reconnect'):
+                        self._bg_stop_event.wait(SLOW_INTERVAL)
+                        continue
+
+                    fs._reconnect_attempts += 1
+                    fs.fault_info["camera"]["reconnect_attempts"] = fs._reconnect_attempts
+                    is_fast = fs._reconnect_attempts <= FAST_MAX
+                    wait_time = FAST_INTERVAL if is_fast else SLOW_INTERVAL
+                    phase = f"{fs._reconnect_attempts}/{FAST_MAX}" if is_fast else "慢速"
+
+                    logger.info(f"[BgWorker:{tag}] 相机重连 ({phase})")
+                    try:
+                        success = fs.camera.reconnect()
+                        if success:
+                            fs._reconnect_attempts = 0
+                            fs.fault_info["camera"] = {"status": "connected", "error": None, "since": None, "reconnect_attempts": 0}
+                            logger.info(f"[BgWorker:{tag}] 相机重连成功")
+                        else:
+                            fs.fault_info["camera"]["error"] = getattr(fs.camera, 'last_error', '重连失败')
+                            self._bg_stop_event.wait(wait_time)
+                            continue
+                    except Exception as e:
+                        fs.fault_info["camera"]["error"] = str(e)
+                        self._bg_stop_event.wait(wait_time)
+                        continue
+                else:
+                    # 相机正常，更新状态
+                    if fs.fault_info["camera"]["status"] != "connected":
+                        fs.fault_info["camera"] = {"status": "connected", "error": None, "since": None, "reconnect_attempts": 0}
 
                 # 驱动状态机
                 cc.tick()
@@ -651,6 +701,24 @@ class StateManager:
         for mid, ms in self.machines.items():
             mc = ms.machine_config
             vision_enabled = any(fs.vision_enabled for fs in ms.funnels.values()) if ms.funnels else True
+            # 收集故障信息
+            faults = []
+            if not ms.plc_connected:
+                faults.append(f"PLC 离线")
+            for fid_chk, fs_chk in ms.funnels.items():
+                cam = fs_chk.fault_info.get("camera", {})
+                if cam.get("status") == "disconnected":
+                    fc_chk = next((f for f in mc.funnels if f.id == fid_chk), None)
+                    fname = fc_chk.name if fc_chk else fid_chk
+                    attempts = cam.get("reconnect_attempts", 0)
+                    since = cam.get("since")
+                    dur = ""
+                    if since:
+                        mins = int((time.time() - since) / 60)
+                        dur = f" ({mins}分钟)" if mins > 0 else " (<1分钟)"
+                    phase = f"重连{attempts}/5" if attempts <= 5 else "慢速重连"
+                    faults.append(f"{fname} 相机断开{dur} [{phase}]")
+
             machine_data = {
                 "id": mid,
                 "name": mc.name,
@@ -659,6 +727,7 @@ class StateManager:
                 "alert_level": ms.worst_alert_level,
                 "funnel_count": len(ms.funnels),
                 "vision_enabled": vision_enabled,
+                "faults": faults,
                 "funnels": [],
             }
             for fid, fs in ms.funnels.items():
@@ -669,10 +738,12 @@ class StateManager:
                     # tick() 只由后台 worker 驱动，这里只读取状态
                     cap_phase = fs.capture_controller.phase.value
                     cap_remaining = round(fs.capture_controller.window_remaining, 1)
+                cam_status = fs.fault_info.get("camera", {}).get("status", "unknown")
                 funnel_data = {
                     "id": fid,
                     "name": fc.name if fc else fid,
                     "is_running": fs.is_running,
+                    "camera_status": cam_status,
                     "detection_count": fs.detection_count,
                     "coal_detections": fs.coal_detections,
                     "capture_phase": cap_phase,

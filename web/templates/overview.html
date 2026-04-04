@@ -8,95 +8,186 @@
     <style>
         .machine-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 24px;
             padding: 24px;
-            max-width: 1500px;
+            max-width: 1600px;
             margin: 0 auto;
         }
         .machine-card {
             background: var(--bg-card);
-            backdrop-filter: blur(10px);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             overflow: hidden;
-            cursor: pointer;
             transition: all var(--transition);
             box-shadow: var(--shadow);
         }
         .machine-card:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-3px);
             box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
         }
-        .machine-card.alert-CRITICAL { border-left: 3px solid var(--danger); }
-        .machine-card.alert-WARNING { border-left: 3px solid var(--orange); }
-        .machine-card.alert-ATTENTION { border-left: 3px solid var(--warning); }
-        .machine-card.alert-NORMAL { border-left: 3px solid var(--success); }
+        .machine-card.alert-CRITICAL { border-left: 4px solid var(--danger); }
+        .machine-card.alert-WARNING { border-left: 4px solid var(--orange); }
+        .machine-card.alert-ATTENTION { border-left: 4px solid var(--warning); }
+        .machine-card.alert-NORMAL { border-left: 4px solid var(--success); }
 
         .machine-header {
-            padding: 16px 18px;
-            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border-bottom: 1px solid var(--border);
+            cursor: pointer;
         }
-        .machine-name { font-size: 16px; font-weight: 600; }
+        .machine-header:hover { background: var(--bg-card-hover); }
+        .machine-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .machine-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-        .funnel-grid {
+        .funnel-thumb-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            gap: 8px; padding: 14px 18px;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            padding: 16px 20px;
         }
-        .funnel-cell {
-            background: rgba(8, 8, 20, 0.5);
-            border: 1px solid var(--border);
+        .funnel-thumb {
+            position: relative;
             border-radius: var(--radius-sm);
-            padding: 10px 8px;
-            text-align: center;
+            overflow: hidden;
+            cursor: pointer;
             transition: all var(--transition);
+            border: 1px solid var(--border);
         }
-        .funnel-cell.alert-NORMAL { border-color: rgba(46, 204, 113, 0.3); }
-        .funnel-cell.alert-CRITICAL { border-color: rgba(231, 76, 60, 0.4); background: var(--danger-bg); }
-        .funnel-cell.alert-WARNING { border-color: rgba(230, 126, 34, 0.4); }
-        .funnel-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-        .funnel-stat { font-size: 10px; color: var(--text-muted); }
-        .funnel-stat .value { color: var(--text-secondary); font-weight: 600; }
+        .funnel-thumb:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-hover);
+        }
+        .funnel-thumb.alert-CRITICAL { border-color: var(--danger); }
+        .funnel-thumb.alert-WARNING { border-color: var(--orange); }
+
+        .thumb-img-wrap {
+            position: relative;
+            width: 100%;
+            padding-top: 75%;
+            background: #1a1a2e;
+        }
+        .thumb-img-wrap img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .thumb-no-signal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 12px;
+        }
+        .thumb-name-overlay {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            padding: 16px 8px 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .thumb-stats {
+            padding: 8px 10px;
+            background: var(--bg-card);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .thumb-stats .value {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .thumb-phase {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            background: var(--bg-input);
+            color: var(--text-muted);
+        }
+        .thumb-phase.active {
+            background: var(--accent-light);
+            color: var(--accent);
+            font-weight: 600;
+        }
 
         .machine-footer {
-            padding: 10px 18px;
+            padding: 12px 20px;
             border-top: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 11px; color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-muted);
         }
-        .btn-vision {
-            padding: 4px 12px; border-radius: 14px; font-size: 11px; font-weight: 600;
-            border: 1px solid; cursor: pointer; transition: all var(--transition);
-            letter-spacing: 0.3px;
+        .footer-stats {
+            display: flex;
+            gap: 16px;
         }
-        .btn-vision-on {
-            background: var(--success-bg); color: var(--success); border-color: rgba(46,204,113,0.3);
-        }
-        .btn-vision-on:hover { background: rgba(46,204,113,0.2); }
-        .btn-vision-off {
-            background: rgba(85,90,110,0.15); color: var(--text-muted); border-color: rgba(85,90,110,0.3);
-        }
-        .btn-vision-off:hover { background: rgba(85,90,110,0.25); }
+        .footer-stats span { font-variant-numeric: tabular-nums; }
 
-        /* Summary bar */
         .summary-bar {
-            display: flex; gap: 24px; padding: 16px 24px;
-            max-width: 1500px; margin: 0 auto;
+            display: flex;
+            gap: 28px;
+            padding: 20px 24px;
+            max-width: 1600px;
+            margin: 0 auto;
         }
         .summary-item {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 12px; color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
         }
-        .summary-num { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+        .summary-num {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
 
-        .empty-state { text-align: center; padding: 80px 20px; color: var(--text-muted); }
-        .empty-state h2 { font-size: 16px; margin-bottom: 6px; color: var(--text-secondary); }
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+        }
+        .empty-state h2 {
+            font-size: 16px;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
 
-        @media (max-width: 500px) {
+        /* Fault banner */
+        .fault-banner {
+            background: var(--danger-bg); border-bottom: 1px solid #fca5a5;
+            padding: 8px 24px; font-size: 13px; color: var(--danger);
+            display: none; max-width: 1600px; margin: 0 auto;
+        }
+        .fault-banner.visible { display: block; }
+        .fault-item { padding: 2px 0; }
+        .fault-item::before { content: "⚠ "; }
+
+        @media (max-width: 560px) {
             .machine-grid { grid-template-columns: 1fr; padding: 12px; }
+            .funnel-thumb-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
         }
     </style>
 </head>
@@ -112,12 +203,13 @@
                 <span id="ws-text">连接中...</span>
             </div>
             <a href="/settings" class="nav-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 设置
             </a>
         </div>
     </div>
 
+    <div class="fault-banner" id="fault-banner"></div>
     <div class="summary-bar" id="summary-bar"></div>
 
     <div class="machine-grid" id="machine-grid">
@@ -129,38 +221,74 @@
 
     <script src="/static/js/ws-reconnect.js"></script>
     <script>
-        const machineGrid = document.getElementById('machine-grid');
-        const summaryBar = document.getElementById('summary-bar');
-        const wsDot = document.getElementById('ws-dot');
-        const wsText = document.getElementById('ws-text');
+        var machineGrid = document.getElementById('machine-grid');
+        var summaryBar = document.getElementById('summary-bar');
+        var faultBanner = document.getElementById('fault-banner');
+        var wsDot = document.getElementById('ws-dot');
+        var wsText = document.getElementById('ws-text');
 
-        const alertMap = { 'NORMAL': '正常', 'ATTENTION': '关注', 'WARNING': '警告', 'CRITICAL': '紧急', 'UNKNOWN': '未知' };
-
-        function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-        var phaseMap = {'idle':'空闲','delay':'延时','capturing':'采集中','judging':'判定','complete':'完成'};
+        var alertMap = { 'NORMAL': '正常', 'ATTENTION': '关注', 'WARNING': '警告', 'CRITICAL': '紧急', 'UNKNOWN': '未知' };
+        var phaseMap = { 'idle': '空闲', 'delay': '延时', 'capturing': '采集中', 'judging': '判定', 'complete': '完成' };
         var _initialized = false;
 
+        /* 缩略图定时刷新：每3秒更新所有漏斗快照 */
+        var _thumbTimers = {};
+        function startThumbRefresh(mid, fid) {
+            var key = mid + '-' + fid;
+            if (_thumbTimers[key]) return;
+            _thumbTimers[key] = setInterval(function() {
+                var img = document.getElementById('timg-' + mid + '-' + fid);
+                if (img) {
+                    img.src = '/api/machine/' + mid + '/funnel/' + fid + '/snapshot?t=' + Date.now();
+                }
+            }, 3000);
+        }
+        function stopAllThumbs() {
+            for (var k in _thumbTimers) { clearInterval(_thumbTimers[k]); }
+            _thumbTimers = {};
+        }
+
+        function esc(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
         function renderMachines(machines) {
+            // 故障横幅
+            var allFaults = [];
+            if (machines) {
+                machines.forEach(function(m) {
+                    (m.faults || []).forEach(function(f) {
+                        allFaults.push(esc(m.name) + ': ' + esc(f));
+                    });
+                });
+            }
+            if (allFaults.length > 0) {
+                faultBanner.innerHTML = allFaults.map(function(f) { return '<div class="fault-item">' + f + '</div>'; }).join('');
+                faultBanner.className = 'fault-banner visible';
+            } else {
+                faultBanner.className = 'fault-banner';
+            }
+
             if (!machines || machines.length === 0) {
                 machineGrid.innerHTML = '<div class="empty-state"><h2>无翻车机配置</h2><p>前往 <a href="/settings" style="color:var(--accent)">系统设置</a> 添加翻车机</p></div>';
                 summaryBar.innerHTML = '';
                 _initialized = false;
+                stopAllThumbs();
                 return;
             }
 
-            // Summary — 只更新数字
+            /* ── 顶部汇总 ── */
             var totalMachines = machines.length;
-            var totalFunnels = machines.reduce(function(s,m){return s+m.funnel_count;},0);
-            var totalDetections = machines.reduce(function(s,m){return s+m.funnels.reduce(function(s2,f){return s2+f.detection_count;},0);},0);
-            var alarms = machines.filter(function(m){return m.alert_level==='CRITICAL'||m.alert_level==='WARNING';}).length;
+            var totalFunnels = machines.reduce(function(s, m) { return s + m.funnel_count; }, 0);
+            var totalDetections = machines.reduce(function(s, m) {
+                return s + m.funnels.reduce(function(s2, f) { return s2 + f.detection_count; }, 0);
+            }, 0);
+            var alarms = machines.filter(function(m) { return m.alert_level === 'CRITICAL' || m.alert_level === 'WARNING'; }).length;
 
             if (!document.getElementById('sum-machines')) {
                 summaryBar.innerHTML =
-                    '<div class="summary-item"><span class="summary-num" id="sum-machines">'+totalMachines+'</span>翻车机</div>'
-                    +'<div class="summary-item"><span class="summary-num" id="sum-funnels">'+totalFunnels+'</span>漏斗</div>'
-                    +'<div class="summary-item"><span class="summary-num" id="sum-detections">'+totalDetections.toLocaleString()+'</span>检测帧</div>'
-                    +'<div class="summary-item" id="sum-alarm-wrap"'+(alarms?'':' style="display:none"')+'><span class="summary-num" id="sum-alarms" style="color:var(--danger)">'+alarms+'</span>报警</div>';
+                    '<div class="summary-item"><span class="summary-num" id="sum-machines">' + totalMachines + '</span>翻车机</div>' +
+                    '<div class="summary-item"><span class="summary-num" id="sum-funnels">' + totalFunnels + '</span>漏斗</div>' +
+                    '<div class="summary-item"><span class="summary-num" id="sum-detections">' + totalDetections.toLocaleString() + '</span>检测帧</div>' +
+                    '<div class="summary-item" id="sum-alarm-wrap"' + (alarms ? '' : ' style="display:none"') + '><span class="summary-num" id="sum-alarms" style="color:var(--danger)">' + alarms + '</span>报警</div>';
             } else {
                 document.getElementById('sum-machines').textContent = totalMachines;
                 document.getElementById('sum-funnels').textContent = totalFunnels;
@@ -169,85 +297,115 @@
                 document.getElementById('sum-alarm-wrap').style.display = alarms ? '' : 'none';
             }
 
-            // 首次：创建 DOM 骨架（带动画）
+            /* ── 首次：创建 DOM 骨架 ── */
             if (!_initialized) {
+                stopAllThumbs();
                 machineGrid.innerHTML = machines.map(function(m, idx) {
                     var fhtml = m.funnels.map(function(f) {
-                        return '<div class="funnel-cell alert-UNKNOWN" id="fc-'+m.id+'-'+f.id+'">'
-                            +'<div class="funnel-name">'+esc(f.name)+'</div>'
-                            +'<div class="funnel-stat">积煤 <span class="value" id="fcoal-'+m.id+'-'+f.id+'">--</span></div>'
-                            +'<div class="funnel-stat">帧数 <span class="value" id="fdet-'+m.id+'-'+f.id+'">0</span></div>'
-                            +'<div class="funnel-stat" id="fphase-'+m.id+'-'+f.id+'">空闲</div>'
-                            +'</div>';
+                        return '<div class="funnel-thumb alert-UNKNOWN" id="ft-' + m.id + '-' + f.id + '" onclick="event.stopPropagation();location.href=\'/machine/' + m.id + '/funnel/' + f.id + '\'">' +
+                            '<div class="thumb-img-wrap">' +
+                            '<img id="timg-' + m.id + '-' + f.id + '" src="/api/machine/' + m.id + '/funnel/' + f.id + '/snapshot?t=' + Date.now() + '" alt="' + esc(f.name) + '">' +
+                            '<div class="thumb-no-signal" id="tns-' + m.id + '-' + f.id + '">无信号</div>' +
+                            '<div class="thumb-name-overlay">' + esc(f.name) + '</div>' +
+                            '</div>' +
+                            '<div class="thumb-stats">' +
+                            '<span>积煤 <span class="value" id="fcoal-' + m.id + '-' + f.id + '">--</span></span>' +
+                            '<span>帧 <span class="value" id="fdet-' + m.id + '-' + f.id + '">0</span></span>' +
+                            '<span class="thumb-phase" id="fphase-' + m.id + '-' + f.id + '">空闲</span>' +
+                            '</div>' +
+                            '</div>';
                     }).join('');
-                    return '<div class="machine-card alert-NORMAL animate-in" id="mc-'+m.id+'" style="animation-delay:'+(idx*0.08)+'s">'
-                        +'<div class="machine-header" onclick="location.href=\'/machine/'+m.id+'\'">'
-                        +'<span class="machine-name">'+esc(m.name)+'</span>'
-                        +'<div style="display:flex;align-items:center;gap:10px;">'
-                        +'<span class="alert-badge alert-NORMAL" id="mbadge-'+m.id+'">正常</span>'
-                        +'<div class="plc-status"><div class="plc-dot offline" id="plcdot-'+m.id+'"></div><span id="plctxt-'+m.id+'">PLC</span></div>'
-                        +'</div></div>'
-                        +'<div class="funnel-grid" onclick="location.href=\'/machine/'+m.id+'\'">'+fhtml+'</div>'
-                        +'<div class="machine-footer">'
-                        +'<span id="mfooter-'+m.id+'"></span>'
-                        +'<button class="btn-vision btn-vision-on" id="vbtn-'+m.id+'" onclick="event.stopPropagation();toggleVision(\''+m.id+'\',true)">● 采集中</button>'
-                        +'</div></div>';
+
+                    return '<div class="machine-card alert-NORMAL animate-in" id="mc-' + m.id + '" style="animation-delay:' + (idx * 0.08) + 's">' +
+                        '<div class="machine-header" onclick="location.href=\'/machine/' + m.id + '\'">' +
+                        '<span class="machine-name">' + esc(m.name) + '</span>' +
+                        '<div class="machine-header-right">' +
+                        '<div class="plc-status"><div class="plc-dot offline" id="plcdot-' + m.id + '"></div><span id="plctxt-' + m.id + '">PLC</span></div>' +
+                        '<span class="alert-badge alert-NORMAL" id="mbadge-' + m.id + '">正常</span>' +
+                        '</div></div>' +
+                        '<div class="funnel-thumb-grid">' + fhtml + '</div>' +
+                        '<div class="machine-footer">' +
+                        '<div class="footer-stats" id="mfooter-' + m.id + '">' +
+                        '<span>' + m.funnel_count + ' 漏斗</span>' +
+                        '<span>0 帧</span>' +
+                        '<span>0 报警</span>' +
+                        '</div>' +
+                        '<button class="btn-vision btn-vision-on" id="vbtn-' + m.id + '" onclick="event.stopPropagation();toggleVision(\'' + m.id + '\',true)">● 采集中</button>' +
+                        '</div></div>';
                 }).join('');
+
+                /* 启动缩略图刷新 */
+                machines.forEach(function(m) {
+                    m.funnels.forEach(function(f) {
+                        startThumbRefresh(m.id, f.id);
+                    });
+                });
+
                 _initialized = true;
             }
 
-            // 增量更新：只改文本和 class
+            /* ── 增量更新 ── */
             machines.forEach(function(m) {
-                var card = document.getElementById('mc-'+m.id);
+                var card = document.getElementById('mc-' + m.id);
                 if (!card) return;
 
-                var ac = 'alert-'+(m.alert_level||'UNKNOWN');
-                var pulse = m.alert_level==='CRITICAL' ? ' alert-pulse' : '';
-                card.className = 'machine-card '+ac+pulse;
+                var ac = 'alert-' + (m.alert_level || 'UNKNOWN');
+                var pulse = m.alert_level === 'CRITICAL' ? ' alert-pulse' : '';
+                card.className = 'machine-card ' + ac + pulse;
 
-                var badge = document.getElementById('mbadge-'+m.id);
-                if (badge) { badge.className='alert-badge '+ac; badge.textContent=alertMap[m.alert_level]||m.alert_level; }
+                var badge = document.getElementById('mbadge-' + m.id);
+                if (badge) { badge.className = 'alert-badge ' + ac; badge.textContent = alertMap[m.alert_level] || m.alert_level; }
 
-                var plcDot = document.getElementById('plcdot-'+m.id);
-                var plcTxt = document.getElementById('plctxt-'+m.id);
-                if (plcDot) plcDot.className = 'plc-dot '+(m.plc_connected?'online':'offline');
-                if (plcTxt) plcTxt.textContent = m.plc_connected?'PLC':'PLC 离线';
+                var plcDot = document.getElementById('plcdot-' + m.id);
+                var plcTxt = document.getElementById('plctxt-' + m.id);
+                if (plcDot) plcDot.className = 'plc-dot ' + (m.plc_connected ? 'online' : 'offline');
+                if (plcTxt) plcTxt.textContent = m.plc_connected ? 'PLC' : 'PLC 离线';
 
-                var td = m.funnels.reduce(function(s,f){return s+f.detection_count;},0);
-                var tc = m.funnels.reduce(function(s,f){return s+f.coal_detections;},0);
-                var footer = document.getElementById('mfooter-'+m.id);
-                if (footer) footer.textContent = m.funnel_count+' 漏斗 · '+td.toLocaleString()+' 帧 / '+tc+' 报警';
+                var td = m.funnels.reduce(function(s, f) { return s + f.detection_count; }, 0);
+                var tc = m.funnels.reduce(function(s, f) { return s + f.coal_detections; }, 0);
+                var footer = document.getElementById('mfooter-' + m.id);
+                if (footer) {
+                    footer.innerHTML = '<span>' + m.funnel_count + ' 漏斗</span><span>' + td.toLocaleString() + ' 帧</span><span>' + tc + ' 报警</span>';
+                }
 
                 var ve = m.vision_enabled !== false;
-                var vbtn = document.getElementById('vbtn-'+m.id);
+                var vbtn = document.getElementById('vbtn-' + m.id);
                 if (vbtn) {
-                    vbtn.className = 'btn-vision '+(ve?'btn-vision-on':'btn-vision-off');
-                    vbtn.textContent = (ve?'● 采集中':'○ 已停用');
-                    vbtn.onclick = function(e){e.stopPropagation();toggleVision(m.id,ve);};
+                    vbtn.className = 'btn-vision ' + (ve ? 'btn-vision-on' : 'btn-vision-off');
+                    vbtn.textContent = ve ? '● 采集中' : '○ 已停用';
+                    vbtn.onclick = function(e) { e.stopPropagation(); toggleVision(m.id, ve); };
                 }
 
                 m.funnels.forEach(function(f) {
-                    var cell = document.getElementById('fc-'+m.id+'-'+f.id);
-                    if (cell) cell.className = 'funnel-cell alert-'+(f.alert_level||'UNKNOWN');
-                    var coal = document.getElementById('fcoal-'+m.id+'-'+f.id);
-                    if (coal) coal.textContent = f.total_grids>0 ? f.coal_grids+'/'+f.total_grids : '--';
-                    var det = document.getElementById('fdet-'+m.id+'-'+f.id);
+                    var cell = document.getElementById('ft-' + m.id + '-' + f.id);
+                    if (cell) cell.className = 'funnel-thumb alert-' + (f.alert_level || 'UNKNOWN');
+
+                    var coal = document.getElementById('fcoal-' + m.id + '-' + f.id);
+                    if (coal) coal.textContent = f.total_grids > 0 ? f.coal_grids + '/' + f.total_grids : '--';
+
+                    var det = document.getElementById('fdet-' + m.id + '-' + f.id);
                     if (det) det.textContent = f.detection_count;
-                    var phase = document.getElementById('fphase-'+m.id+'-'+f.id);
+
+                    var phase = document.getElementById('fphase-' + m.id + '-' + f.id);
                     if (phase) {
-                        var cp = f.capture_phase||'idle';
-                        phase.textContent = phaseMap[cp]||cp;
-                        phase.style.color = cp==='capturing'?'var(--accent)':'';
-                        phase.style.fontWeight = cp==='capturing'?'600':'';
+                        var cp = f.capture_phase || 'idle';
+                        phase.textContent = phaseMap[cp] || cp;
+                        phase.className = 'thumb-phase' + (cp === 'capturing' ? ' active' : '');
+                    }
+
+                    /* 隐藏"无信号"文字：一旦有检测帧说明有画面 */
+                    if (f.detection_count > 0) {
+                        var ns = document.getElementById('tns-' + m.id + '-' + f.id);
+                        if (ns) ns.style.display = 'none';
                     }
                 });
             });
         }
 
-        // Vision enable/disable toggle
+        /* 视觉启停 */
         function toggleVision(machineId, currentState) {
-            const action = currentState ? 'disable' : 'enable';
-            const label = currentState ? '停用' : '启用';
+            var action = currentState ? 'disable' : 'enable';
+            var label = currentState ? '停用' : '启用';
             if (!confirm('确认' + label + '该翻车机的视觉采集？\n\n停用后 PLC 侧 Allow_Tip 将强制为 1（允许翻车）')) return;
             fetch('/api/machine/' + machineId + '/vision/' + action, { method: 'POST' })
                 .then(function(r) { return r.json(); })
@@ -257,14 +415,15 @@
                 .catch(function(e) { alert('请求失败: ' + e); });
         }
 
-        // Real-time clock
+        /* 实时时钟 */
         setInterval(function() {
-            const now = new Date();
+            var now = new Date();
             document.getElementById('clock').textContent =
                 now.toLocaleDateString('zh-CN') + ' ' +
-                now.toLocaleTimeString('zh-CN', {hour12: false});
+                now.toLocaleTimeString('zh-CN', { hour12: false });
         }, 1000);
 
+        /* WebSocket */
         createReconnectingWS(
             'ws://' + location.host + '/ws/overview',
             function(data) { renderMachines(data.machines); },

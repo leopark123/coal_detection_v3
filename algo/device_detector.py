@@ -164,13 +164,18 @@ class DeviceDetector(CoalDetector):
                     self.device_coal_detections += 1
 
             else:
-                result.device_confidence = "ERROR"
-                result.device_alert_level = "ERROR"
+                result.quality_ok = False
+                result.fault_code = 3
+                result.device_confidence = "LOW"
+                result.device_alert_level = "WARNING"
 
         except Exception as e:
             logger.error(f"[DeviceDetector] 设备检测异常: {e}")
-            result.device_confidence = "ERROR"
-            result.device_alert_level = "ERROR"
+            result.quality_ok = False
+            result.fault_code = 3  # 检测异常视为画质/算法故障
+            result.device_has_coal = False  # fault_code≠0 → can_tip=False
+            result.device_confidence = "LOW"
+            result.device_alert_level = "WARNING"
 
         # 记录处理时间
         process_time = (time.perf_counter() - start_time) * 1000

@@ -295,22 +295,13 @@ class AllenBradleyPLC:
             return False
 
     def update_heartbeat(self):
-        """更新心跳信号（500ms 周期）"""
-        current_time = time.time()
+        """
+        [已废弃] 心跳由后台线程 _heartbeat_loop 独立管理。
 
-        # 检查心跳间隔
-        if (current_time - self.last_heartbeat_time) * 1000 >= self.heartbeat_interval:
-            with self._heartbeat_value_lock:
-                self.heartbeat_value = (self.heartbeat_value + 1) % 65536
-                hb_val = self.heartbeat_value
-            success = self.write("IPC_Heartbeat", hb_val)
-
-            if success:
-                self.last_heartbeat_time = current_time
-
-            return success
-
-        return True  # 未到时间，不需要更新
+        保留此方法仅为兼容旧代码（detect_process.py），
+        但不再递增心跳值，避免双重递增竞态。
+        """
+        return True
 
     def send_detection_result(self, coal_present: bool, confidence: str,
                             need_manual: bool, fault_code: int = 0):
@@ -382,8 +373,13 @@ class AllenBradleyPLC:
 
         try:
             # 尝试读取心跳标签来验证连接
-            with self._io_lock:
+            if not self._io_lock.acquire(timeout=self._io_lock_timeout):
+                logger.warning("[AllenBradleyPLC] 连接检查获取锁超时")
+                return False
+            try:
                 result = self.plc.read("IPC_Heartbeat")
+            finally:
+                self._io_lock.release()
 
             if result.error:
                 logger.warning(f"[AllenBradleyPLC] 连接检查失败: {result.error}")
@@ -519,8 +515,13 @@ class AllenBradleyPLC:
         with self._reconnect_lock:
             logger.info(f"[AllenBradleyPLC] 心跳线程内重连...")
             # 持有 _io_lock 期间关闭旧连接并替换对象，防止其他线程用旧引用
-            with self._io_lock:
+            if not self._io_lock.acquire(timeout=self._io_lock_timeout):
+                logger.warning("[AllenBradleyPLC] 重连获取锁超时，放弃本次重连")
+                return
+            try:
                 self._close_plc_connection()
+            finally:
+                self._io_lock.release()
             time.sleep(1.0)
 
             try:
@@ -543,9 +544,18 @@ class AllenBradleyPLC:
                         new_plc = None
                         result = None
                 if result:
-                    # 在 _io_lock 下替换 plc 引用，确保其他线程看到新对象
-                    with self._io_lock:
+                    # 在 _io_lock 下替换 plc 引用（带超时）
+                    if not self._io_lock.acquire(timeout=self._io_lock_timeout):
+                        logger.warning("[AllenBradleyPLC] 替换 PLC 引用获取锁超时")
+                        try:
+                            new_plc.close()
+                        except Exception:
+                            pass
+                        return
+                    try:
                         self.plc = new_plc
+                    finally:
+                        self._io_lock.release()
                     self.is_connected = True
                     self._consecutive_failures = 0
                     self._current_reconnect_interval = self._reconnect_interval

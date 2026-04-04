@@ -129,12 +129,11 @@ class BaslerCamera:
                     break
 
             if target_device is None:
-                # 未按 IP 匹配到，使用第一台设备
-                logger.warning(
-                    f"[BaslerCamera] 未找到 IP={self.camera_ip} 的设备，使用第一台: "
-                    f"{devices[0].GetSerialNumber()}"
+                available = [d.GetIpAddress() for d in devices if hasattr(d, 'GetIpAddress')]
+                raise ConnectionError(
+                    f"未找到 IP={self.camera_ip} 的相机。"
+                    f"发现的设备: {available}"
                 )
-                target_device = devices[0]
 
             # 创建 InstantCamera
             self.camera = pylon.InstantCamera(tlf.CreateDevice(target_device))
@@ -150,6 +149,9 @@ class BaslerCamera:
             self.grab_start_time = time.time()
             self._consecutive_grab_failures = 0
             self._current_reconnect_interval = self._reconnect_interval
+            # 确保重连后仍在 atexit 全局清理列表中
+            if self not in _active_cameras:
+                _active_cameras.append(self)
             logger.info(
                 f"[BaslerCamera] 连接成功 - {target_device.GetModelName()}, "
                 f"SN={target_device.GetSerialNumber()}"

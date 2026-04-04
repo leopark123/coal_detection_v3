@@ -250,9 +250,13 @@ pytest tests/ -v
 | H1-H13 | HIGH | 13 项（详见整改文档） | 全部修复 |
 | M1-M8 | MEDIUM | 8 项（详见整改文档） | 全部修复 |
 
-共修复 **27 个安全漏洞**（6 CRITICAL + 13 HIGH + 8 MEDIUM）。
+共修复 **35 个安全漏洞**（6 CRITICAL + 13 HIGH + 8 MEDIUM + 8 审查轮修复）。
+
+包括三轮 CODEX 审查发现的问题：相机拒绝 IP 回退、detect_device 异常 fail-safe、
+_io_lock 全部超时、安全上限零帧 fail-safe、update_heartbeat 废弃、atexit 重注册等。
 
 详细清单见 `docs/improvement_report_v3.0.docx` 和 `docs/整改记录与已知限制.md`。
+CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V3.md`。
 
 ## 稳定性验证
 
