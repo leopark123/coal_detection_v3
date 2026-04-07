@@ -100,8 +100,25 @@ class StateManager:
         self.devices_config: Optional[DevicesConfig] = None
         self.base_config: Optional[Config] = None
         self._yaml_path: Optional[str] = None
-        self._bg_workers: Dict[str, threading.Thread] = {}  # 后台检测 worker
+        self._bg_workers: Dict[str, threading.Thread] = {}
         self._bg_stop_event = threading.Event()
+        self._start_time: float = time.time()
+        # 故障事件日志（最近 50 条）
+        self._fault_events: List[Dict] = []
+        self._fault_events_max = 50
+
+    def add_fault_event(self, device: str, event_type: str, message: str):
+        """记录一条故障事件"""
+        entry = {
+            "timestamp": time.time(),
+            "time_str": time.strftime("%H:%M:%S"),
+            "device": device,
+            "type": event_type,
+            "message": message,
+        }
+        self._fault_events.append(entry)
+        if len(self._fault_events) > self._fault_events_max:
+            self._fault_events = self._fault_events[-self._fault_events_max:]
 
     def initialize(self, devices_config: DevicesConfig, base_config: Config, yaml_path: str = None):
         """
@@ -126,10 +143,14 @@ class StateManager:
             try:
                 ms.plc = create_plc(plc_cfg)
                 logger.info(f"[StateManager] PLC {mc.plc_ip} 已连接 ({mc.name})")
+                self.add_fault_event(mc.name, "plc_ok", f"PLC 连接成功 ({mc.plc_ip})")
+                self._register_plc_callback(ms, mc)
             except ImportError:
-                raise  # 生产环境依赖缺失，必须终止启动
+                raise
             except Exception as e:
                 logger.error(f"[StateManager] PLC {mc.plc_ip} 连接失败: {e}")
+                self.add_fault_event(mc.name, "plc", f"PLC 连接失败: {e}")
+                ms.fault_info["plc"] = {"status": "offline", "error": str(e), "since": time.time()}
 
             # 创建每个漏斗的 camera + detector + capture_controller
             for fc in mc.funnels:
@@ -225,20 +246,39 @@ class StateManager:
                     continue
 
                 # 无相机或断连时自动重连
-                # 策略：快速5次(每10秒) → 慢速(每60秒)永不放弃
+                # 策略：
+                #   从未连接过(_ever_connected=False) → 不重连（IP不存在，避免pypylon枚举冲突）
+                #   曾连接过(_ever_connected=True)   → 快速5次(10秒) → 慢速(60秒)永不放弃
                 if not fs.camera or not getattr(fs.camera, 'is_connected', False):
                     FAST_MAX = 5
                     FAST_INTERVAL = 10.0
                     SLOW_INTERVAL = 60.0
 
-                    # 记录断开时间
+                    # 从未连接成功过的相机不重连（IP 不存在的漏斗）
+                    ever_connected = getattr(fs, '_ever_connected', False)
+                    if not ever_connected:
+                        if fs.fault_info["camera"]["status"] != "not_available":
+                            fs.fault_info["camera"] = {
+                                "status": "not_available",
+                                "error": getattr(fs.camera, 'last_error', '相机未初始化') if fs.camera else "相机未初始化",
+                                "since": time.time(),
+                                "reconnect_attempts": 0,
+                            }
+                            logger.info(f"[BgWorker:{tag}] 相机从未连接成功，不重连")
+                            self.add_fault_event(tag, "camera", "相机从未连接成功(IP不存在)，不重连")
+                        self._bg_stop_event.wait(SLOW_INTERVAL)
+                        continue
+
+                    # 曾连接过 → 断电/更换后自动重连，永不放弃
                     if fs.fault_info["camera"]["status"] != "disconnected":
+                        cam_err = getattr(fs.camera, 'last_error', None) if fs.camera else "连接断开"
                         fs.fault_info["camera"] = {
                             "status": "disconnected",
-                            "error": getattr(fs.camera, 'last_error', None) if fs.camera else "相机未初始化",
+                            "error": cam_err,
                             "since": time.time(),
                             "reconnect_attempts": 0,
                         }
+                        self.add_fault_event(tag, "camera", f"相机断开: {cam_err or '连接断开'}")
 
                     if not fs.camera or not hasattr(fs.camera, 'reconnect'):
                         self._bg_stop_event.wait(SLOW_INTERVAL)
@@ -250,13 +290,17 @@ class StateManager:
                     wait_time = FAST_INTERVAL if is_fast else SLOW_INTERVAL
                     phase = f"{fs._reconnect_attempts}/{FAST_MAX}" if is_fast else "慢速"
 
-                    logger.info(f"[BgWorker:{tag}] 相机重连 ({phase})")
+                    # 慢速阶段降低日志频率（每10次打一次）
+                    if is_fast or fs._reconnect_attempts % 10 == 0:
+                        logger.info(f"[BgWorker:{tag}] 相机重连 ({phase}, 第{fs._reconnect_attempts}次)")
                     try:
                         success = fs.camera.reconnect()
                         if success:
                             fs._reconnect_attempts = 0
+                            fs._ever_connected = True
                             fs.fault_info["camera"] = {"status": "connected", "error": None, "since": None, "reconnect_attempts": 0}
                             logger.info(f"[BgWorker:{tag}] 相机重连成功")
+                            self.add_fault_event(tag, "camera_ok", f"相机重连成功(第{fs._reconnect_attempts+1}次尝试后)")
                         else:
                             fs.fault_info["camera"]["error"] = getattr(fs.camera, 'last_error', '重连失败')
                             self._bg_stop_event.wait(wait_time)
@@ -384,8 +428,12 @@ class StateManager:
         try:
             ms.plc = create_plc(plc_cfg)
             logger.info(f"[StateManager] PLC {mc.plc_ip} 已连接 ({mc.name})")
+            self.add_fault_event(mc.name, "plc_ok", f"PLC 连接成功 ({mc.plc_ip})")
+            self._register_plc_callback(ms, mc)
         except Exception as e:
             logger.error(f"[StateManager] PLC {mc.plc_ip} 连接失败: {e}")
+            self.add_fault_event(mc.name, "plc", f"PLC 连接失败: {e}")
+            ms.fault_info["plc"] = {"status": "offline", "error": str(e), "since": time.time()}
 
         # 漏斗
         for fc in mc.funnels:
@@ -620,6 +668,21 @@ class StateManager:
     # 内部方法
     # ═══════════════════════════════════════════════════════════════
 
+    def _register_plc_callback(self, ms: MachineState, mc: MachineConfig):
+        """注册 PLC 运行时状态变化回调"""
+        if not ms.plc or not hasattr(ms.plc, 'on_status_change'):
+            return
+
+        def _cb(status, msg, _name=mc.name, _ms=ms):
+            if status == "disconnected":
+                self.add_fault_event(_name, "plc", msg)
+                _ms.fault_info["plc"] = {"status": "offline", "error": msg, "since": time.time()}
+            elif status == "connected":
+                self.add_fault_event(_name, "plc_ok", msg)
+                _ms.fault_info["plc"] = {"status": "online", "error": None, "since": None}
+
+        ms.plc.on_status_change = _cb
+
     def _create_funnel(self, ms: MachineState, mc: MachineConfig, fc: FunnelConfig):
         """内部：创建单个漏斗的 camera + detector"""
         funnel_cfg = build_funnel_config(self.base_config, mc, fc)
@@ -660,9 +723,18 @@ class StateManager:
                 )
         fs.capture_controller.on_window_complete = _on_window_complete
 
+        cam_ok = fs.camera and getattr(fs.camera, 'is_connected', False)
+        fs._ever_connected = cam_ok  # 标记初始化时是否成功连过
         fs.is_running = bool(fs.camera and fs.detector)
         if fs.is_running:
             fs.capture_controller.start()
+        if not cam_ok and fs.camera:
+            fs.fault_info["camera"] = {
+                "status": "not_available",
+                "error": getattr(fs.camera, 'last_error', '初始化连接失败'),
+                "since": time.time(),
+                "reconnect_attempts": 0,
+            }
         ms.funnels[fc.id] = fs
 
     def _save_config(self):
@@ -695,6 +767,76 @@ class StateManager:
             return ms.funnels.get(funnel_id)
         return None
 
+    def get_all_faults(self) -> dict:
+        """获取全部故障详情 + 系统状态 + 故障事件日志"""
+        import gc
+        faults = []
+        for mid, ms in self.machines.items():
+            mc = ms.machine_config
+            # PLC
+            if not ms.plc_connected:
+                plc_info = ms.fault_info.get("plc", {})
+                faults.append({
+                    "device": mc.name, "type": "plc",
+                    "status": "offline",
+                    "ip": mc.plc_ip,
+                    "error": plc_info.get("error", "连接断开"),
+                    "since": plc_info.get("since"),
+                    "detail": f"心跳: 停止, 写入失败: {getattr(ms.plc, 'write_count', 0) if ms.plc else 0}次",
+                })
+            # 漏斗相机
+            for fid, fs in ms.funnels.items():
+                fc = next((f for f in mc.funnels if f.id == fid), None)
+                fname = fc.name if fc else fid
+                cam = fs.fault_info.get("camera", {})
+                if cam.get("status") in ("disconnected", "not_available", "stopped"):
+                    since = cam.get("since")
+                    dur_min = int((time.time() - since) / 60) if since else 0
+                    status_map = {
+                        "disconnected": f"重连中 (第{cam.get('reconnect_attempts',0)}次)",
+                        "not_available": "未连接(IP不存在)",
+                        "stopped": "已停止重连",
+                    }
+                    faults.append({
+                        "device": f"{mc.name}/{fname}", "type": "camera",
+                        "status": cam["status"],
+                        "status_display": status_map.get(cam["status"], cam["status"]),
+                        "ip": fc.camera_ip if fc else "?",
+                        "error": cam.get("error", "未知"),
+                        "since": since,
+                        "duration_min": dur_min,
+                        "reconnect_attempts": cam.get("reconnect_attempts", 0),
+                    })
+        # 系统状态
+        uptime = time.time() - self._start_time
+        system = {
+            "uptime_s": round(uptime),
+            "uptime_h": round(uptime / 3600, 1),
+            "machines": len(self.machines),
+            "gc_collections": sum(s.get('collections', 0) for s in gc.get_stats()),
+        }
+        try:
+            import psutil
+            proc = psutil.Process()
+            system["rss_mb"] = round(proc.memory_info().rss / 1024 / 1024, 1)
+            system["threads"] = proc.num_threads()
+        except ImportError:
+            pass
+
+        # 采集统计
+        total_captures = 0
+        for ms in self.machines.values():
+            for fs in ms.funnels.values():
+                total_captures += fs.detection_count
+        system["total_captures"] = total_captures
+
+        return {
+            "faults": faults,
+            "fault_count": len(faults),
+            "system": system,
+            "events": self._fault_events[-20:],  # 最近 20 条事件
+        }
+
     def get_overview_data(self) -> List[dict]:
         """总览页数据"""
         result = []
@@ -707,17 +849,23 @@ class StateManager:
                 faults.append(f"PLC 离线")
             for fid_chk, fs_chk in ms.funnels.items():
                 cam = fs_chk.fault_info.get("camera", {})
-                if cam.get("status") == "disconnected":
+                cam_status = cam.get("status", "unknown")
+                if cam_status in ("disconnected", "not_available", "stopped"):
                     fc_chk = next((f for f in mc.funnels if f.id == fid_chk), None)
                     fname = fc_chk.name if fc_chk else fid_chk
-                    attempts = cam.get("reconnect_attempts", 0)
-                    since = cam.get("since")
-                    dur = ""
-                    if since:
-                        mins = int((time.time() - since) / 60)
-                        dur = f" ({mins}分钟)" if mins > 0 else " (<1分钟)"
-                    phase = f"重连{attempts}/5" if attempts <= 5 else "慢速重连"
-                    faults.append(f"{fname} 相机断开{dur} [{phase}]")
+                    if cam_status == "not_available":
+                        faults.append(f"{fname} 相机未连接(IP不存在)")
+                    elif cam_status == "stopped":
+                        faults.append(f"{fname} 相机已停止重连")
+                    else:
+                        attempts = cam.get("reconnect_attempts", 0)
+                        since = cam.get("since")
+                        dur = ""
+                        if since:
+                            mins = int((time.time() - since) / 60)
+                            dur = f" ({mins}分钟)" if mins > 0 else " (<1分钟)"
+                        phase = f"重连{attempts}/5" if attempts <= 5 else "慢速重连"
+                        faults.append(f"{fname} 相机断开{dur} [{phase}]")
 
             machine_data = {
                 "id": mid,
@@ -744,6 +892,9 @@ class StateManager:
                     "name": fc.name if fc else fid,
                     "is_running": fs.is_running,
                     "camera_status": cam_status,
+                    "camera_error": fs.fault_info.get("camera", {}).get("error"),
+                    "camera_since": fs.fault_info.get("camera", {}).get("since"),
+                    "camera_reconnects": fs.fault_info.get("camera", {}).get("reconnect_attempts", 0),
                     "detection_count": fs.detection_count,
                     "coal_detections": fs.coal_detections,
                     "capture_phase": cap_phase,

@@ -70,6 +70,10 @@ class AllenBradleyPLC:
         self._io_lock = threading.Lock()
         self._io_lock_timeout = 5.0  # 锁等待超时（秒），防止死锁
 
+        # 状态变化回调（供 state_manager 记录故障事件）
+        self.on_status_change: Optional[callable] = None
+        self._was_connected: bool = False  # 上次状态（用于边沿检测，避免重复回调）
+
         # 重连管理
         self._reconnect_lock = threading.Lock()
         self._reconnect_interval = 5.0  # 重连间隔（秒）
@@ -121,6 +125,7 @@ class AllenBradleyPLC:
 
             if result:
                 self.is_connected = True
+                self._was_connected = True
                 self.connection_start_time = time.time()
                 self._consecutive_failures = 0
                 self._current_reconnect_interval = self._reconnect_interval
@@ -179,6 +184,7 @@ class AllenBradleyPLC:
                 # 如果是通信错误，标记断连
                 if "timeout" in str(result.error).lower() or "connection" in str(result.error).lower():
                     self.is_connected = False
+                    self._notify_disconnect(f"写入 {tag} 失败: {result.error}")
 
                 return False
             else:
@@ -206,6 +212,7 @@ class AllenBradleyPLC:
                 self._consecutive_failures += 1
                 if self._consecutive_failures >= self._max_consecutive_failures:
                     self.is_connected = False
+                    self._notify_disconnect(f"写入异常累计{self._consecutive_failures}次: {error_msg}")
 
             return False
 
@@ -238,6 +245,7 @@ class AllenBradleyPLC:
                 # 通信错误时标记断连
                 if "timeout" in str(result.error).lower():
                     self.is_connected = False
+                    self._notify_disconnect(f"读取 {tag} 失败: {result.error}")
 
                 return None
             else:
@@ -251,6 +259,7 @@ class AllenBradleyPLC:
 
             if "timeout" in error_msg.lower():
                 self.is_connected = False
+                self._notify_disconnect(f"读取异常: {error_msg}")
 
             return None
 
@@ -384,6 +393,7 @@ class AllenBradleyPLC:
             if result.error:
                 logger.warning(f"[AllenBradleyPLC] 连接检查失败: {result.error}")
                 self.is_connected = False
+                self._notify_disconnect(f"连接检查失败: {result.error}")
                 return False
             else:
                 return True
@@ -391,6 +401,7 @@ class AllenBradleyPLC:
         except Exception as e:
             logger.warning(f"[AllenBradleyPLC] 连接检查异常: {e}")
             self.is_connected = False
+            self._notify_disconnect(f"连接检查异常: {e}")
             return False
 
     def reconnect(self) -> bool:
@@ -488,6 +499,7 @@ class AllenBradleyPLC:
                     )
                     self.is_connected = False
                     self._consecutive_failures = 0
+                    self._notify_disconnect(f"心跳连续{self._max_consecutive_failures}次失败")
                     # 等待后直接重建连接（不能调 reconnect，会死锁 join 自己）
                     self._heartbeat_stop_event.wait(self._current_reconnect_interval)
                     if not self._heartbeat_stop_event.is_set():
@@ -561,6 +573,7 @@ class AllenBradleyPLC:
                     self._current_reconnect_interval = self._reconnect_interval
                     self.write("IPC_Online", True)
                     logger.info("[AllenBradleyPLC] 心跳线程内重连成功")
+                    self._notify_connect()  # _notify_connect 内部设 _was_connected=True
                 else:
                     self._current_reconnect_interval = min(
                         self._current_reconnect_interval * 1.5,
@@ -573,6 +586,26 @@ class AllenBradleyPLC:
                     self._current_reconnect_interval * 1.5,
                     self._max_reconnect_interval
                 )
+
+    def _notify_disconnect(self, reason: str = "通信失败"):
+        """通知状态变化（边沿触发，只在 connected→disconnected 时回调一次）"""
+        if self._was_connected and not self.is_connected:
+            self._was_connected = False
+            if self.on_status_change:
+                try:
+                    self.on_status_change("disconnected", reason)
+                except Exception:
+                    pass
+
+    def _notify_connect(self):
+        """通知重连成功（边沿触发）"""
+        if not self._was_connected and self.is_connected:
+            self._was_connected = True
+            if self.on_status_change:
+                try:
+                    self.on_status_change("connected", "PLC 重连成功")
+                except Exception:
+                    pass
 
     def _close_plc_connection(self):
         """内部：仅关闭 PLC 网络连接，不发送离线信号"""

@@ -361,6 +361,12 @@ async def api_machine_status(machine_id: str):
     }
 
 
+@app.get("/api/faults/all")
+async def api_all_faults():
+    """全局故障详情（所有翻车机+系统状态+事件日志）"""
+    return state_manager.get_all_faults()
+
+
 @app.get("/api/machine/{machine_id}/faults")
 async def api_machine_faults(machine_id: str):
     """翻车机及其漏斗的故障详情"""

@@ -170,6 +170,11 @@ def create_admin_router(state_manager) -> APIRouter:
     @router.post("/machines")
     async def add_machine(req: MachineCreateRequest, x_admin_token: str = Header()):
         verify_admin(x_admin_token)
+        from config.devices_config import _validate_id
+        try:
+            _validate_id(req.id, "machine_id")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         mc = MachineConfig(
             id=req.id, name=req.name, plc_ip=req.plc_ip,
             plc_timeout_ms=req.plc_timeout_ms,
@@ -218,6 +223,11 @@ def create_admin_router(state_manager) -> APIRouter:
     @router.post("/machines/{machine_id}/funnels")
     async def add_funnel(machine_id: str, req: FunnelCreateRequest, x_admin_token: str = Header()):
         verify_admin(x_admin_token)
+        from config.devices_config import _validate_id
+        try:
+            _validate_id(req.id, "funnel_id")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         fc = FunnelConfig(
             id=req.id, name=req.name, camera_ip=req.camera_ip,
             pixel_format=req.pixel_format, camera_timeout_ms=req.camera_timeout_ms,

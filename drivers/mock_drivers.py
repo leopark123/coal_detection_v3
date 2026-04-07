@@ -215,6 +215,7 @@ class MockPLC:
         self.tags = {}
         self.heartbeat_count = 0
         self.is_connected = True
+        self.on_status_change = None  # 与 AllenBradleyPLC 接口一致
         self.write_count = 0
         
         # 故障注入配置

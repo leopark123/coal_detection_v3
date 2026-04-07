@@ -7,6 +7,7 @@
     - FunnelConfig（漏斗级，含相机信息）
 """
 
+import re
 from dataclasses import dataclass, field
 from typing import List
 from pathlib import Path
@@ -14,6 +15,15 @@ from pathlib import Path
 import yaml
 
 from config.config import Config
+
+_VALID_ID = re.compile(r'^[A-Za-z0-9_-]+$')
+
+
+def _validate_id(value: str, label: str = "id") -> str:
+    """校验 ID 只含安全字符（防 XSS/注入）"""
+    if not _VALID_ID.match(value):
+        raise ValueError(f"{label} '{value}' 包含非法字符，只允许字母数字下划线和横线")
+    return value
 
 
 @dataclass
@@ -60,7 +70,7 @@ class DevicesConfig:
             funnels = []
             for fn in m.get("funnels", []):
                 funnels.append(FunnelConfig(
-                    id=fn["id"],
+                    id=_validate_id(fn["id"], "funnel_id"),
                     name=fn.get("name", fn["id"]),
                     camera_ip=fn["camera_ip"],
                     pixel_format=fn.get("pixel_format", "mono"),
@@ -73,7 +83,7 @@ class DevicesConfig:
                     capture_vote_threshold=fn.get("capture_vote_threshold", 0.6),
                 ))
             machines.append(MachineConfig(
-                id=m["id"],
+                id=_validate_id(m["id"], "machine_id"),
                 name=m.get("name", m["id"]),
                 plc_ip=m["plc_ip"],
                 plc_timeout_ms=m.get("plc_timeout_ms", 3000),

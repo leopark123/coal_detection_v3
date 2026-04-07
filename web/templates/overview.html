@@ -183,7 +183,39 @@
         }
         .fault-banner.visible { display: block; }
         .fault-item { padding: 2px 0; }
+        .fault-item { cursor: pointer; }
         .fault-item::before { content: "⚠ "; }
+        .fault-item:hover { text-decoration: underline; }
+
+        /* Fault detail panel */
+        .fault-panel {
+            display: none; max-width: 1600px; margin: 0 auto;
+            padding: 0 24px 16px;
+        }
+        .fault-panel.visible { display: block; }
+        .fault-detail-card {
+            background: #fff; border: 1px solid #fca5a5; border-radius: var(--radius-sm);
+            padding: 12px 16px; margin-bottom: 8px;
+        }
+        .fault-detail-header { font-weight: 600; font-size: 13px; margin-bottom: 6px; color: var(--danger); }
+        .fault-detail-row { font-size: 12px; color: var(--text-secondary); line-height: 1.8; }
+        .fault-detail-row span { color: var(--text-primary); }
+        .fault-sys-bar {
+            background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 10px 16px; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);
+            display: flex; gap: 24px; flex-wrap: wrap;
+        }
+        .fault-sys-bar b { color: var(--text-primary); }
+        .fault-events {
+            background: #fafafa; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 10px 16px; max-height: 150px; overflow-y: auto;
+            font-family: "SF Mono", Consolas, monospace; font-size: 11px;
+        }
+        .fault-event-line { padding: 1px 0; border-bottom: 1px solid #f0f0f0; }
+        .fault-event-time { color: var(--text-muted); }
+        .fault-event-ok { color: var(--success); }
+        .fault-event-err { color: var(--danger); }
+        .fault-toggle { font-size: 11px; color: var(--accent); cursor: pointer; margin-left: 8px; }
 
         @media (max-width: 560px) {
             .machine-grid { grid-template-columns: 1fr; padding: 12px; }
@@ -209,7 +241,8 @@
         </div>
     </div>
 
-    <div class="fault-banner" id="fault-banner"></div>
+    <div class="fault-banner" id="fault-banner" onclick="toggleFaultPanel()"></div>
+    <div class="fault-panel" id="fault-panel"></div>
     <div class="summary-bar" id="summary-bar"></div>
 
     <div class="machine-grid" id="machine-grid">
@@ -224,6 +257,73 @@
         var machineGrid = document.getElementById('machine-grid');
         var summaryBar = document.getElementById('summary-bar');
         var faultBanner = document.getElementById('fault-banner');
+        var faultPanel = document.getElementById('fault-panel');
+        var faultPanelOpen = false;
+
+        function toggleFaultPanel() {
+            faultPanelOpen = !faultPanelOpen;
+            if (faultPanelOpen) {
+                faultPanel.className = 'fault-panel visible';
+                loadFaultDetails();
+            } else {
+                faultPanel.className = 'fault-panel';
+            }
+        }
+
+        function loadFaultDetails() {
+            fetch('/api/faults/all').then(function(r){return r.json();}).then(function(data) {
+                var html = '';
+
+                // Fault detail cards
+                (data.faults || []).forEach(function(f) {
+                    var dur = f.duration_min ? f.duration_min + '分钟' : '<1分钟';
+                    var sinceStr = f.since ? new Date(f.since * 1000).toLocaleTimeString('zh-CN') : '—';
+                    html += '<div class="fault-detail-card">'
+                        + '<div class="fault-detail-header">' + esc(f.device) + ' — ' + (f.type==='plc'?'PLC离线':'相机故障') + '</div>'
+                        + '<div class="fault-detail-row">状态: <span>' + esc(f.status_display || f.status) + '</span></div>'
+                        + '<div class="fault-detail-row">IP: <span>' + esc(f.ip) + '</span>  错误: <span>' + esc(f.error || '未知') + '</span></div>'
+                        + '<div class="fault-detail-row">断开时间: <span>' + sinceStr + '</span>  持续: <span>' + dur + '</span></div>';
+                    if (f.reconnect_attempts !== undefined) {
+                        html += '<div class="fault-detail-row">重连: <span>第' + f.reconnect_attempts + '次</span></div>';
+                    }
+                    html += '</div>';
+                });
+
+                if (data.faults && data.faults.length === 0) {
+                    html += '<div style="color:var(--success);padding:8px 0">✓ 无故障</div>';
+                }
+
+                // System status bar
+                var sys = data.system || {};
+                html += '<div class="fault-sys-bar">'
+                    + '<span>运行: <b>' + (sys.uptime_h||0) + 'h</b></span>'
+                    + '<span>内存: <b>' + (sys.rss_mb||'?') + 'MB</b></span>'
+                    + '<span>线程: <b>' + (sys.threads||'?') + '</b></span>'
+                    + '<span>采集: <b>' + (sys.total_captures||0).toLocaleString() + '</b>帧</span>'
+                    + '</div>';
+
+                // Event log
+                var events = data.events || [];
+                if (events.length > 0) {
+                    html += '<div class="fault-events">';
+                    events.reverse().forEach(function(e) {
+                        var cls = e.type.indexOf('_ok') >= 0 ? 'fault-event-ok' : 'fault-event-err';
+                        html += '<div class="fault-event-line">'
+                            + '<span class="fault-event-time">[' + esc(e.time_str) + ']</span> '
+                            + '<span class="' + cls + '">' + esc(e.device) + ' ' + esc(e.message) + '</span>'
+                            + '</div>';
+                    });
+                    html += '</div>';
+                }
+
+                faultPanel.innerHTML = html;
+            }).catch(function(e) {
+                faultPanel.innerHTML = '<div style="color:var(--danger);padding:8px">加载失败: ' + esc(String(e)) + '</div>';
+            });
+        }
+
+        // Auto-refresh fault panel if open
+        setInterval(function() { if (faultPanelOpen) loadFaultDetails(); }, 5000);
         var wsDot = document.getElementById('ws-dot');
         var wsText = document.getElementById('ws-text');
 
@@ -261,10 +361,13 @@
                 });
             }
             if (allFaults.length > 0) {
-                faultBanner.innerHTML = allFaults.map(function(f) { return '<div class="fault-item">' + f + '</div>'; }).join('');
+                var toggleText = faultPanelOpen ? '收起 ▲' : '展开详情 ▼';
+                faultBanner.innerHTML = allFaults.map(function(f) { return '<div class="fault-item">' + f + '</div>'; }).join('')
+                    + '<span class="fault-toggle">' + toggleText + '</span>';
                 faultBanner.className = 'fault-banner visible';
             } else {
                 faultBanner.className = 'fault-banner';
+                if (faultPanelOpen) { faultPanelOpen = false; faultPanel.className = 'fault-panel'; }
             }
 
             if (!machines || machines.length === 0) {
