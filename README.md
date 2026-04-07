@@ -250,13 +250,13 @@ pytest tests/ -v
 | H1-H13 | HIGH | 13 项（详见整改文档） | 全部修复 |
 | M1-M8 | MEDIUM | 8 项（详见整改文档） | 全部修复 |
 
-共修复 **35 个安全漏洞**（6 CRITICAL + 13 HIGH + 8 MEDIUM + 8 审查轮修复）。
+共修复 **55 个安全漏洞**（经 10 轮 CODEX 审查迭代）。
 
-包括三轮 CODEX 审查发现的问题：相机拒绝 IP 回退、detect_device 异常 fail-safe、
-_io_lock 全部超时、安全上限零帧 fail-safe、update_heartbeat 废弃、atexit 重注册等。
+包括：pypylon 枚举冲突崩溃根因、PLC 断连边沿通知、ID 白名单校验、
+相机自动重连（永不放弃）、故障事件 9 条路径闭环等。
 
-详细清单见 `docs/improvement_report_v3.0.docx` 和 `docs/整改记录与已知限制.md`。
-CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V3.md`。
+详细清单见 `docs/整改记录与已知限制.md`。
+CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V10.md`。
 
 ## 稳定性验证
 
@@ -273,10 +273,11 @@ CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V3.md`。
 | 文档 | 位置 |
 |------|------|
 | 项目规范 | CLAUDE.md |
+| 项目分析报告 | docs/project_analysis_report_v3.0.docx |
 | 部署报告 | docs/翻车机积煤检测系统_部署报告_V3.0.docx |
-| 整改记录 | docs/improvement_report_v3.0.docx |
-| 整改记录(MD) | docs/整改记录与已知限制.md |
+| 整改记录 | docs/整改记录与已知限制.md |
 | PLC 点位表 | docs/PLC点位表配置.md |
+| CODEX 审查 | docs/CODEX_REVIEW_PROMPT_V10.md |
 
 ## License
 
