@@ -1,0 +1,48 @@
+<link rel="stylesheet" href="/static/css/sidebar.css">
+
+<nav class="sidebar" id="sidebar">
+    <!-- Toggle -->
+    <div class="sidebar-toggle" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+    </div>
+
+    <!-- Menu -->
+    <div class="sidebar-menu">
+        <a href="/" class="sidebar-item" data-page="overview" data-tooltip="总览">
+            <span class="sidebar-icon">📊</span>
+            <span class="sidebar-text">总览</span>
+        </a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-item" data-page="devices" data-tooltip="设备" onclick="toggleDevices()">
+            <span class="sidebar-icon">🏭</span>
+            <span class="sidebar-text">设备</span>
+        </div>
+        <div class="sidebar-devices" id="sidebar-devices">
+            <!-- JS 动态加载 -->
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <a href="/settings" class="sidebar-item" data-page="settings" data-tooltip="设置">
+            <span class="sidebar-icon">⚙️</span>
+            <span class="sidebar-text">设置</span>
+        </a>
+    </div>
+
+    <!-- Footer: System status -->
+    <div class="sidebar-footer" id="sidebar-footer">
+        <div class="sidebar-footer-item">
+            <span class="sidebar-dot off"></span>
+            <span class="sidebar-footer-label">加载中...</span>
+        </div>
+    </div>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<script src="/static/js/sidebar.js"></script>

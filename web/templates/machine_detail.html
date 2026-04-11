@@ -115,6 +115,8 @@
     </style>
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="app-layout">
     <div class="header">
         <div>
             <div class="breadcrumb"><a href="/">总览</a> &gt; {{ machine_name }}</div>
@@ -276,5 +278,6 @@
             }
         );
     </script>
+    </div>
 </body>
 </html>

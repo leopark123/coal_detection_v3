@@ -21,8 +21,8 @@
         .main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; min-height: calc(100vh - 56px); }
 
         /* Sidebar — white */
-        .sidebar { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-y: auto; box-shadow: var(--shadow); }
-        .sidebar-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; }
+        .settings-sidebar { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-y: auto; box-shadow: var(--shadow); }
+        .settings-sidebar-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; }
 
         .tree-item { padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; transition: all var(--transition); }
         .tree-item:hover { background: var(--bg-input); }
@@ -47,6 +47,8 @@
     </style>
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="app-layout">
     <!-- Login -->
     <div class="login-overlay" id="login-overlay">
         <div class="login-box">
@@ -66,8 +68,8 @@
 
     <div class="main">
         <!-- Sidebar: tree -->
-        <div class="sidebar">
-            <div class="sidebar-title">设备管理</div>
+        <div class="settings-sidebar">
+            <div class="settings-sidebar-title">设备管理</div>
             <div id="device-tree"></div>
             <div class="tree-add" onclick="showAddMachine()">+ 添加翻车机</div>
         </div>
@@ -334,5 +336,6 @@
                 + '<input type="' + type + '" id="' + id + '" value="' + esc(String(val || '')) + '"></div>';
         }
     </script>
+    </div>
 </body>
 </html>
