@@ -1,6 +1,6 @@
 machines:
 - id: machine-1
-  name: 1#翻车机
+  name: 9#翻车机
   plc_ip: 192.168.1.19
   plc_timeout_ms: 3000
   plc_heartbeat_interval_ms: 500

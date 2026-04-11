@@ -111,7 +111,7 @@ class StateManager:
         """记录一条故障事件"""
         entry = {
             "timestamp": time.time(),
-            "time_str": time.strftime("%H:%M:%S"),
+            "time_str": time.strftime("%Y-%m-%d %H:%M:%S"),
             "device": device,
             "type": event_type,
             "message": message,
@@ -680,6 +680,22 @@ class StateManager:
             elif status == "connected":
                 self.add_fault_event(_name, "plc_ok", msg)
                 _ms.fault_info["plc"] = {"status": "online", "error": None, "since": None}
+                # PLC 重连后重置所有漏斗的采集状态
+                # 防止 CaptureState 残留（断连时写 State 失败→PLC 不发下次 Cmd→采集停滞）
+                # 重置所有漏斗的采集状态（不 sleep，不阻塞心跳线程）
+                # 先尝试一次写入，失败则设标志由 tick() 异步重试
+                from core.capture_window import CapturePhase
+                for _fs in _ms.funnels.values():
+                    cc = _fs.capture_controller
+                    if cc:
+                        cc._phase = CapturePhase.IDLE
+                        ok = cc._write_plc_state(0)
+                        if ok:
+                            cc._needs_state_reset = False
+                            logger.info(f"[StateManager] PLC重连后重置 {_fs.funnel_id} CaptureState=0")
+                        else:
+                            cc._needs_state_reset = True
+                            logger.warning(f"[StateManager] {_fs.funnel_id} State=0 首次写入失败，由 tick() 重试")
 
         ms.plc.on_status_change = _cb
 

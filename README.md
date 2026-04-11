@@ -250,13 +250,14 @@ pytest tests/ -v
 | H1-H13 | HIGH | 13 项（详见整改文档） | 全部修复 |
 | M1-M8 | MEDIUM | 8 项（详见整改文档） | 全部修复 |
 
-共修复 **55 个安全漏洞**（经 10 轮 CODEX 审查迭代）。
+共修复 **58 个安全漏洞**（经 12 轮 CODEX 审查迭代）。
 
 包括：pypylon 枚举冲突崩溃根因、PLC 断连边沿通知、ID 白名单校验、
-相机自动重连（永不放弃）、故障事件 9 条路径闭环等。
+相机自动重连（永不放弃）、故障事件 9 条路径闭环、
+PLC 断网后采集停滞修复（State 重置+异步重试）等。
 
 详细清单见 `docs/整改记录与已知限制.md`。
-CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V10.md`。
+CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V12.md`。
 
 ## 稳定性验证
 
@@ -277,7 +278,7 @@ CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V10.md`。
 | 部署报告 | docs/翻车机积煤检测系统_部署报告_V3.0.docx |
 | 整改记录 | docs/整改记录与已知限制.md |
 | PLC 点位表 | docs/PLC点位表配置.md |
-| CODEX 审查 | docs/CODEX_REVIEW_PROMPT_V10.md |
+| CODEX 审查 | docs/CODEX_REVIEW_PROMPT_V12.md |
 
 ## License
 

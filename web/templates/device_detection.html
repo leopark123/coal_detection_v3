@@ -507,7 +507,7 @@
         }
 
         function addLog(message) {
-            const timestamp = new Date().toLocaleTimeString();
+            const timestamp = new Date().toLocaleString('zh-CN', {hour12:false});
             const logEntry = document.createElement('div');
             logEntry.className = 'log-entry';
             logEntry.innerHTML = `<span style="color: #888">[${timestamp}]</span> ${message}`;

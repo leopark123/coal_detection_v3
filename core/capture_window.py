@@ -115,6 +115,9 @@ class CaptureWindowController:
         # 回调：窗口判定完成后通知外部
         self.on_window_complete: Optional[Callable[[WindowResult], None]] = None
 
+        # PLC 重连后 State 重置标志（由 state_manager 设置，tick() 重试）
+        self._needs_state_reset: bool = False
+
         self._running = False
         self._capture_count = 0  # 总采集窗口计数
 
@@ -180,9 +183,16 @@ class CaptureWindowController:
         now = time.time()
 
         if self._phase == CapturePhase.IDLE:
-            # 按间隔轮询 PLC 指令（不要每帧都读）
+            # 按间隔轮询 PLC 指令（节流）
             if now - self._last_poll_time >= self.config.poll_interval_s:
                 self._last_poll_time = now
+
+                # PLC 重连后 State 重置重试（受 poll_interval 节流）
+                if self._needs_state_reset:
+                    if self._write_plc_state(self.STATE_IDLE):
+                        self._needs_state_reset = False
+                        logger.info("[CaptureWindow] State=0 重试写入成功")
+
                 cmd = self._read_plc_cmd()
                 if cmd == self.CMD_START:
                     # PLC 发出采集指令
@@ -299,14 +309,16 @@ class CaptureWindowController:
             logger.debug(f"[CaptureWindow] 读取 Tipper_InPosition 失败: {e}")
         return True  # 读取失败时不中断采集
 
-    def _write_plc_state(self, state: int):
-        """写入采集状态到 PLC"""
+    def _write_plc_state(self, state: int) -> bool:
+        """写入采集状态到 PLC，返回是否成功"""
         if not self.plc:
-            return
+            return False
         try:
-            self.plc.write(self.TAG_CAPTURE_STATE, state)
+            ok = self.plc.write(self.TAG_CAPTURE_STATE, state)
+            return bool(ok)
         except Exception as e:
             logger.error(f"[CaptureWindow] 写入 Vision_CaptureState={state} 失败: {e}")
+            return False
 
     def _finalize_window(self):
         """窗口结束，汇总投票"""

@@ -184,7 +184,7 @@
 
         function addLog(msg) {
             var container = document.getElementById('log-container');
-            var now = new Date().toLocaleTimeString();
+            var now = new Date().toLocaleString('zh-CN', {hour12:false});
             var entry = document.createElement('div');
             entry.className = 'log-entry';
             var timeSpan = document.createElement('span');

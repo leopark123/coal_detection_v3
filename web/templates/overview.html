@@ -277,7 +277,7 @@
                 // Fault detail cards
                 (data.faults || []).forEach(function(f) {
                     var dur = f.duration_min ? f.duration_min + '分钟' : '<1分钟';
-                    var sinceStr = f.since ? new Date(f.since * 1000).toLocaleTimeString('zh-CN') : '—';
+                    var sinceStr = f.since ? new Date(f.since * 1000).toLocaleString('zh-CN', {hour12:false}) : '—';
                     html += '<div class="fault-detail-card">'
                         + '<div class="fault-detail-header">' + esc(f.device) + ' — ' + (f.type==='plc'?'PLC离线':'相机故障') + '</div>'
                         + '<div class="fault-detail-row">状态: <span>' + esc(f.status_display || f.status) + '</span></div>'
