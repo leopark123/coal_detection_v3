@@ -439,5 +439,6 @@ class CaptureWindowController:
                 "alarm_ratio": round(self.last_window_result.alarm_ratio, 2),
                 "is_alarm": self.last_window_result.is_alarm,
                 "confidence": self.last_window_result.confidence,
+                "window_end": self.last_window_result.window_end,
             } if self.last_window_result else None,
         }

@@ -33,19 +33,27 @@
         /* Alert badge */
         .alert-badge { width: 100%; text-align: center; padding: 6px 14px; font-size: 13px; border-radius: 20px; font-weight: 700; }
 
-        /* Grid Heatmap */
-        .grid-heatmap {
-            display: grid; grid-template-columns: repeat(5, 1fr);
-            gap: 3px; max-height: 200px; overflow-y: auto;
+        /* Capture window timeline */
+        .window-list { max-height: 200px; overflow-y: auto; }
+        .window-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px;
         }
-        .grid-cell {
-            width: 100%; padding-top: 100%; position: relative; border-radius: 3px;
-            transition: background 0.3s ease;
+        .window-item:last-child { border-bottom: none; }
+        .window-badge {
+            padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
         }
-        .grid-cell.normal { background: var(--success-bg); border: 1px solid #a7f3d0; }
-        .grid-cell.coal { background: var(--danger-bg); border: 1px solid #fca5a5; }
-        .grid-cell.blocked { background: var(--warning-bg); border: 1px solid #fde68a; }
-        .grid-cell.unknown { background: #f0f0f0; border: 1px solid #e0e0e0; }
+        .window-badge.ok { background: var(--success-bg); color: var(--success); }
+        .window-badge.alarm { background: var(--danger-bg); color: var(--danger); }
+
+        /* Device status */
+        .device-status-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; font-size: 12px; border-bottom: 1px solid #f0f0f0;
+        }
+        .device-status-row:last-child { border-bottom: none; }
+        .status-label { color: var(--text-muted); }
+        .status-val { font-weight: 600; }
 
         .btn { flex: 1; text-align: center; }
 
@@ -130,10 +138,39 @@
                 </div>
             </div>
 
-            <!-- Grid heatmap -->
+            <!-- Capture window timeline -->
             <div class="card">
-                <div class="card-title">格栅状态 ({{ grid_count }})</div>
-                <div class="grid-heatmap" id="grid-heatmap"></div>
+                <div class="card-title">采集窗口记录</div>
+                <div class="window-list" id="window-list">
+                    <div style="color:var(--text-muted);font-size:12px">等待数据...</div>
+                </div>
+            </div>
+
+            <!-- Device status -->
+            <div class="card">
+                <div class="card-title">设备状态</div>
+                <div id="device-status">
+                    <div class="device-status-row">
+                        <span class="status-label">相机</span>
+                        <span class="status-val" id="ds-camera">—</span>
+                    </div>
+                    <div class="device-status-row">
+                        <span class="status-label">PLC</span>
+                        <span class="status-val" id="ds-plc">—</span>
+                    </div>
+                    <div class="device-status-row">
+                        <span class="status-label">重连次数</span>
+                        <span class="status-val" id="ds-reconnects">0</span>
+                    </div>
+                    <div class="device-status-row">
+                        <span class="status-label">运行时长</span>
+                        <span class="status-val" id="ds-uptime">—</span>
+                    </div>
+                    <div class="device-status-row">
+                        <span class="status-label">采集阶段</span>
+                        <span class="status-val" id="ds-phase">—</span>
+                    </div>
+                </div>
             </div>
 
             <!-- Action buttons -->
@@ -156,7 +193,7 @@
     <script>
         var machineId = "{{ machine_id }}";
         var funnelId = "{{ funnel_id }}";
-        var gridCount = {{ grid_count }};
+        // grid_count 保留供统计使用（格栅总数显示）
         var wsDot = document.getElementById('ws-dot');
         var wsText = document.getElementById('ws-text');
         var totalDetections = 0;
@@ -168,15 +205,9 @@
             'WARNING': '警告状态', 'CRITICAL': '紧急处理', 'UNKNOWN': '等待数据'
         };
 
-        // Initialize grid heatmap
-        var heatmap = document.getElementById('grid-heatmap');
-        for (var i = 0; i < gridCount; i++) {
-            var cell = document.createElement('div');
-            cell.className = 'grid-cell unknown';
-            cell.id = 'gcell-' + i;
-            cell.title = '格栅 ' + i;
-            heatmap.appendChild(cell);
-        }
+        // Capture window records
+        var windowRecords = [];
+        var MAX_WINDOW_RECORDS = 15;
 
         function escapeHtml(text) {
             var div = document.createElement('div');
@@ -236,21 +267,10 @@
                 document.getElementById('alarm-rate').textContent = rate + '%';
                 document.getElementById('avg-time').textContent = totalDetections > 0 ? (totalProcessTime / totalDetections).toFixed(0) : '--';
 
-                // Grid heatmap
-                var gridDetails = r.grid_details || [];
-                for (var i = 0; i < gridDetails.length && i < gridCount; i++) {
-                    var cellEl = document.getElementById('gcell-' + i);
-                    if (cellEl) {
-                        var g = gridDetails[i];
-                        if (g.has_coal) {
-                            cellEl.className = 'grid-cell coal';
-                        } else if (g.visible) {
-                            cellEl.className = 'grid-cell normal';
-                        } else {
-                            cellEl.className = 'grid-cell blocked';
-                        }
-                    }
-                }
+                // Capture phase
+                var phase = data.capture_phase || 'idle';
+                var phaseMap = {'idle':'空闲','delay':'延时','capturing':'采集中','judging':'判定','complete':'完成'};
+                document.getElementById('ds-phase').textContent = phaseMap[phase] || phase;
             },
             {
                 onOpen: function() {
@@ -295,6 +315,95 @@
                 })
                 .catch(function(e) { addLog('下载失败: ' + escapeHtml(String(e))); });
         }
+
+        // ── 定期加载设备状态 + 采集窗口记录 ──
+        function loadDeviceStatus() {
+            // 设备故障信息
+            fetch('/api/faults/all').then(function(r){return r.json();}).then(function(data) {
+                // 相机状态（按精确 ID 匹配）
+                var camStatus = '—';
+                var reconnects = 0;
+                (data.faults || []).forEach(function(f) {
+                    if (f.type === 'camera' && f.machine_id === machineId && f.funnel_id === funnelId) {
+                        camStatus = f.status_display || f.status;
+                        reconnects = f.reconnect_attempts || 0;
+                    }
+                });
+                var camEl = document.getElementById('ds-camera');
+                if (camEl) {
+                    if (camStatus === '—') {
+                        camEl.innerHTML = '<span style="color:var(--success)">● 在线</span>';
+                    } else {
+                        camEl.innerHTML = '<span style="color:var(--danger)">● ' + escapeHtml(camStatus) + '</span>';
+                    }
+                }
+                document.getElementById('ds-reconnects').textContent = reconnects;
+
+                // PLC 状态（按精确 machine_id 匹配）
+                var plcOk = true;
+                (data.faults || []).forEach(function(f) {
+                    if (f.type === 'plc' && f.machine_id === machineId) {
+                        plcOk = false;
+                    }
+                });
+                var plcEl = document.getElementById('ds-plc');
+                if (plcEl) {
+                    plcEl.innerHTML = plcOk
+                        ? '<span style="color:var(--success)">● 在线</span>'
+                        : '<span style="color:var(--danger)">● 离线</span>';
+                }
+
+                // 运行时长
+                var sys = data.system || {};
+                document.getElementById('ds-uptime').textContent = (sys.uptime_h || 0) + 'h';
+            }).catch(function(){});
+
+            // 采集窗口记录
+            fetch('/api/machine/' + machineId + '/funnel/' + funnelId + '/capture_status')
+                .then(function(r){return r.json();})
+                .then(function(cs) {
+                    var lr = cs.last_result;
+                    if (lr && lr.total_frames > 0) {
+                        // 检查是否是新窗口（用 window_end 时间戳精确去重）
+                        var wEnd = lr.window_end || 0;
+                        var last = windowRecords.length > 0 ? windowRecords[0] : null;
+                        if (!last || last.windowEnd !== wEnd) {
+                            windowRecords.unshift({
+                                time: wEnd ? new Date(wEnd * 1000).toLocaleString('zh-CN', {hour12:false}) : new Date().toLocaleString('zh-CN', {hour12:false}),
+                                windowEnd: wEnd,
+                                frames: lr.total_frames,
+                                alarm: lr.alarm_frames,
+                                ratio: lr.alarm_ratio,
+                                isAlarm: lr.is_alarm,
+                                confidence: lr.confidence,
+                            });
+                            if (windowRecords.length > MAX_WINDOW_RECORDS) windowRecords.pop();
+                            renderWindowList();
+                        }
+                    }
+                }).catch(function(){});
+        }
+
+        function renderWindowList() {
+            var container = document.getElementById('window-list');
+            if (!container || windowRecords.length === 0) return;
+            var html = '';
+            windowRecords.forEach(function(w) {
+                var badgeClass = w.isAlarm ? 'alarm' : 'ok';
+                var badgeText = w.isAlarm ? '报警' : '正常';
+                html += '<div class="window-item">'
+                    + '<span style="color:var(--text-muted)">' + escapeHtml(w.time) + '</span>'
+                    + '<span>' + w.frames + '帧</span>'
+                    + '<span>' + (w.ratio * 100).toFixed(0) + '%</span>'
+                    + '<span class="window-badge ' + badgeClass + '">' + badgeText + '</span>'
+                    + '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        // 每 5 秒刷新设备状态和窗口记录
+        loadDeviceStatus();
+        setInterval(loadDeviceStatus, 5000);
     </script>
     </div>
 </body>

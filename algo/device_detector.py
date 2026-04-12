@@ -52,7 +52,11 @@ class DeviceResult:
             "visible_percentage": self.visible_percentage,
             "process_time_ms": self.process_time_ms,
             "frame_id": self.frame_id,
-            "grid_count": len(self.grid_details) if self.grid_details else 0
+            "grid_count": len(self.grid_details) if self.grid_details else 0,
+            "grid_details": [
+                {"has_coal": bool(g.has_coal), "is_visible": bool(g.is_visible), "visible": bool(g.is_visible)}
+                for g in (self.grid_details or [])
+            ],
         }
 
 

@@ -794,10 +794,14 @@ class StateManager:
                 plc_info = ms.fault_info.get("plc", {})
                 faults.append({
                     "device": mc.name, "type": "plc",
+                    "machine_id": mid,
                     "status": "offline",
+                    "status_display": "离线",
                     "ip": mc.plc_ip,
                     "error": plc_info.get("error", "连接断开"),
                     "since": plc_info.get("since"),
+                    "duration_min": int((time.time() - plc_info["since"]) / 60) if plc_info.get("since") else 0,
+                    "reconnect_attempts": 0,
                     "detail": f"心跳: 停止, 写入失败: {getattr(ms.plc, 'write_count', 0) if ms.plc else 0}次",
                 })
             # 漏斗相机
@@ -815,6 +819,8 @@ class StateManager:
                     }
                     faults.append({
                         "device": f"{mc.name}/{fname}", "type": "camera",
+                        "machine_id": mid,
+                        "funnel_id": fid,
                         "status": cam["status"],
                         "status_display": status_map.get(cam["status"], cam["status"]),
                         "ip": fc.camera_ip if fc else "?",
