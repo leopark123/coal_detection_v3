@@ -647,8 +647,9 @@ pip install -r requirements.txt
 # 3. 生成测试图片
 python tools/generate_test_images.py
 
-# 4. 运行
-python main.py --dev
+# 4. 运行（统一 Web 主线）
+python start_unified.py
+# 或手动：python -m uvicorn web.unified_app:app --host 0.0.0.0 --port 8080
 ```
 
 ### 11.2 生产环境部署
@@ -663,12 +664,12 @@ pip install pycomm3  # PLC 通信
 # 3. 安装 Basler pypylon SDK
 pip install pypylon
 
-# 4. 配置
-cp config/config_prod.yaml config/config.yaml
-# 编辑 PLC IP、相机 IP 等
+# 4. 配置拓扑
+# 编辑 config/devices.yaml，配置翻车机/漏斗/相机IP/PLC IP
 
-# 5. 运行
-python main.py --config config/config.yaml
+# 5. 运行（看门狗自重启）
+start_production.bat
+# 或手动：python -m uvicorn web.unified_app:app --host 0.0.0.0 --port 8080
 ```
 
 ### 11.3 健康检查

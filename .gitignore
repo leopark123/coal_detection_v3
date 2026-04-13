@@ -24,9 +24,8 @@ htmlcov/
 .pytest_cache/
 pytest-cache-files-*/
 
-# 日志（保留目录结构，排除内容）
-logs/images/
-logs/*.log
+# 日志
+logs/
 runtime_*.log
 uvicorn_*.log
 
@@ -41,6 +40,7 @@ Desktop.ini
 # 打包产物
 GridEditorToolKit_v1.0.0_*.zip
 GridEditorToolKit_v1.0.0_*/
+coal_detection_deploy/
 
 # pytest 临时缓存
 pytest-cache-files-*/
