@@ -22,13 +22,15 @@ xcopy /E /I /Q "drivers" "%DEPLOY_DIR%\drivers\"
 xcopy /E /I /Q "plc" "%DEPLOY_DIR%\plc\"
 xcopy /E /I /Q "web" "%DEPLOY_DIR%\web\"
 xcopy /E /I /Q "tools" "%DEPLOY_DIR%\tools\"
-xcopy /E /I /Q "scripts" "%DEPLOY_DIR%\scripts\"
 
 echo [2/6] 复制配置和启动文件...
-copy "main.py" "%DEPLOY_DIR%\"
+copy "start_unified.py" "%DEPLOY_DIR%\"
+copy "start_production.bat" "%DEPLOY_DIR%\"
+copy "start_monitor.bat" "%DEPLOY_DIR%\"
+copy "install_autostart.bat" "%DEPLOY_DIR%\"
+copy "install_service.bat" "%DEPLOY_DIR%\"
 copy "requirements.txt" "%DEPLOY_DIR%\"
 copy "pytest.ini" "%DEPLOY_DIR%\"
-copy "start_prod.bat" "%DEPLOY_DIR%\"
 copy "CLAUDE.md" "%DEPLOY_DIR%\"
 copy "README.md" "%DEPLOY_DIR%\"
 
@@ -66,9 +68,9 @@ echo echo ============================================ >> "%DEPLOY_DIR%\install_
 echo echo   安装完成！ >> "%DEPLOY_DIR%\install_on_target.bat"
 echo echo. >> "%DEPLOY_DIR%\install_on_target.bat"
 echo echo   下一步操作： >> "%DEPLOY_DIR%\install_on_target.bat"
-echo echo   1. 运行 scripts\network_setup.bat 配置网络 >> "%DEPLOY_DIR%\install_on_target.bat"
+echo echo   1. 编辑 config\devices.yaml 配置翻车机拓扑 >> "%DEPLOY_DIR%\install_on_target.bat"
 echo echo   2. 运行 python tools\hardware_test.py 测试硬件 >> "%DEPLOY_DIR%\install_on_target.bat"
-echo echo   3. 运行 start_prod.bat 启动生产系统 >> "%DEPLOY_DIR%\install_on_target.bat"
+echo echo   3. 运行 start_production.bat 启动生产系统 >> "%DEPLOY_DIR%\install_on_target.bat"
 echo echo ============================================ >> "%DEPLOY_DIR%\install_on_target.bat"
 echo pause >> "%DEPLOY_DIR%\install_on_target.bat"
 
@@ -80,19 +82,19 @@ echo. >> "%DEPLOY_DIR%\部署说明.md"
 echo 1. 将整个 coal_detection_deploy 文件夹复制到目标工控机 >> "%DEPLOY_DIR%\部署说明.md"
 echo 2. 在目标机器上运行 install_on_target.bat >> "%DEPLOY_DIR%\部署说明.md"
 echo 3. 连接硬件（相机、PLC、网线） >> "%DEPLOY_DIR%\部署说明.md"
-echo 4. 配置网络： scripts\network_setup.bat >> "%DEPLOY_DIR%\部署说明.md"
+echo 4. 编辑 config\devices.yaml 配置翻车机拓扑 >> "%DEPLOY_DIR%\部署说明.md"
 echo 5. 硬件测试： python tools\hardware_test.py >> "%DEPLOY_DIR%\部署说明.md"
-echo 6. 启动系统： start_prod.bat >> "%DEPLOY_DIR%\部署说明.md"
+echo 6. 启动系统： start_production.bat >> "%DEPLOY_DIR%\部署说明.md"
 echo. >> "%DEPLOY_DIR%\部署说明.md"
 echo ## 网络配置 >> "%DEPLOY_DIR%\部署说明.md"
 echo. >> "%DEPLOY_DIR%\部署说明.md"
 echo - 工控机网卡：192.168.1.10 >> "%DEPLOY_DIR%\部署说明.md"
-echo - Basler相机：192.168.1.100 >> "%DEPLOY_DIR%\部署说明.md"
-echo - Allen Bradley PLC：192.168.1.200 >> "%DEPLOY_DIR%\部署说明.md"
+echo - Basler相机：192.168.1.12 >> "%DEPLOY_DIR%\部署说明.md"
+echo - Allen Bradley PLC：192.168.1.19 >> "%DEPLOY_DIR%\部署说明.md"
 echo. >> "%DEPLOY_DIR%\部署说明.md"
 echo ## 监控地址 >> "%DEPLOY_DIR%\部署说明.md"
 echo. >> "%DEPLOY_DIR%\部署说明.md"
-echo - Web界面：http://localhost:8000 >> "%DEPLOY_DIR%\部署说明.md"
+echo - Web界面：http://localhost:8080 >> "%DEPLOY_DIR%\部署说明.md"
 
 echo [6/6] 打包完成...
 
@@ -111,7 +113,7 @@ echo.
 echo   接下来步骤：
 echo   1. 将 %DEPLOY_DIR% 文件夹复制到目标工控机
 echo   2. 在目标机器运行 install_on_target.bat
-echo   3. 按照 部署说明.md 进行硬件连接
+echo   3. 按照 部署说明.md 进行硬件连接和配置
 echo ============================================
 
 :: 可选：打开部署包目录

@@ -20,6 +20,7 @@ import time
 import numpy as np
 import cv2
 import os
+import importlib.util
 import multiprocessing as mp
 from pathlib import Path
 from statistics import mean, stdev
@@ -27,10 +28,6 @@ from statistics import mean, stdev
 psutil = pytest.importorskip("psutil", reason="性能测试依赖 psutil")
 
 from algo.detector import CoalDetector
-from core.double_buffer import DoubleBuffer
-from core.frame_state import FrameState
-from core.capture_process import CaptureProcess
-from core.detect_process import DetectProcess
 from config.config import Config
 
 
@@ -158,6 +155,10 @@ class TestDetectorPerformance:
         assert avg_time_per_frame < 300  # DEV模式下每帧300ms以内
 
 
+_has_core_multiprocess = importlib.util.find_spec("core.double_buffer") is not None
+
+
+@pytest.mark.skipif(not _has_core_multiprocess, reason="core 双进程模块已归档到 scripts/legacy/")
 class TestMultiProcessPerformance:
     """多进程架构性能测试"""
 
@@ -171,6 +172,8 @@ class TestMultiProcessPerformance:
     @pytest.mark.slow
     def test_double_buffer_performance(self, config):
         """测试双缓冲区性能"""
+        from core.double_buffer import DoubleBuffer
+
         buffer = DoubleBuffer(config)
 
         try:
@@ -195,6 +198,8 @@ class TestMultiProcessPerformance:
     @pytest.mark.slow
     def test_frame_state_performance(self, config):
         """测试帧状态管理性能"""
+        from core.frame_state import FrameState
+
         state = FrameState(config)
 
         # 模拟高频读写
@@ -228,6 +233,11 @@ class TestMultiProcessPerformance:
     @pytest.mark.slow
     def test_end_to_end_latency(self, config):
         """测试端到端延迟"""
+        from core.double_buffer import DoubleBuffer
+        from core.frame_state import FrameState
+        from core.capture_process import CaptureProcess
+        from core.detect_process import DetectProcess
+
         if mp.get_start_method() != 'spawn':
             pytest.skip("需要 spawn 启动方式进行多进程测试")
 

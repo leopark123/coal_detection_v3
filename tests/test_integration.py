@@ -15,6 +15,7 @@ import time
 import tempfile
 import os
 import yaml
+import importlib.util
 import multiprocessing as mp
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -23,7 +24,6 @@ from config.config import Config
 from drivers.factory import create_camera, create_plc
 from drivers.mock_drivers import MockCamera, MockPLC
 from algo.detector import CoalDetector
-from main import CoalDetectionSystem
 from fastapi.routing import APIRoute, APIWebSocketRoute
 
 
@@ -283,6 +283,11 @@ class TestDetectorIntegration:
                 assert memory_growth < 200, f"可能存在内存泄漏: {memory_growth:.1f} MB"
 
 
+# 旧 main.py 主线已归档，相关测试跳过
+_has_main = importlib.util.find_spec("main") is not None
+
+
+@pytest.mark.skipif(not _has_main, reason="main.py 已归档到 scripts/legacy/")
 class TestSystemIntegration:
     """系统集成测试"""
 
@@ -295,6 +300,7 @@ class TestSystemIntegration:
 
     def test_system_startup_shutdown(self, config):
         """测试系统启动和关闭"""
+        from main import CoalDetectionSystem
         system = CoalDetectionSystem(config)
 
         # 测试启动
@@ -315,6 +321,7 @@ class TestSystemIntegration:
 
     def test_error_recovery(self, config):
         """测试错误恢复机制"""
+        from main import CoalDetectionSystem
         system = CoalDetectionSystem(config)
 
         # 模拟关键组件初始化失败，系统应返回失败并保持未运行状态
@@ -329,6 +336,7 @@ class TestSystemIntegration:
     @pytest.mark.slow
     def test_long_running_stability(self, config):
         """测试长时间运行稳定性"""
+        from main import CoalDetectionSystem
         system = CoalDetectionSystem(config)
 
         try:
@@ -361,6 +369,11 @@ class TestSystemIntegration:
             system.stop()
 
 
+# 旧 web/app.py 已归档，相关测试跳过
+_has_web_app = importlib.util.find_spec("web.app") is not None
+
+
+@pytest.mark.skipif(not _has_web_app, reason="web/app.py 已归档到 scripts/legacy/")
 class TestWebIntegration:
     """Web 接口集成测试"""
 

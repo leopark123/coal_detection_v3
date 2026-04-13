@@ -127,7 +127,7 @@ Rung 9: XIO Tipper_InPosition → MOV 0 → PLC_CaptureCmd + RES Timer  # 回位
 |------|-----|------|
 | 总览 | / | 所有翻车机卡片、实时时钟、采集状态、报警统计、启停按钮 |
 | 翻车机详情 | /machine/{id} | 多路视频网格、PLC 状态、启停按钮 |
-| 漏斗详情 | /machine/{id}/funnel/{id} | 大图视频、检测结果、格栅热力图 |
+| 漏斗详情 | /machine/{id}/funnel/{id} | 大图视频、检测结果、采集窗口时间线、设备状态 |
 | 管理设置 | /settings | 增删翻车机/漏斗、修改参数（密码保护） |
 
 ### 视觉启停控制
@@ -160,15 +160,14 @@ machines:
 
 ```
 coal_detection/
-├── main.py                       # 主检测程序入口
+├── start_unified.py              # 开发模式入口（→ web.unified_app）
+├── start_production.bat          # 生产模式入口（看门狗自重启）
 ├── config/
 │   ├── config.py                 # 配置类（DEV/PROD 模式切换）
 │   ├── devices.yaml              # 多翻车机拓扑配置
 │   └── devices_config.py         # 拓扑配置加载器
 ├── core/
-│   ├── capture_window.py         # 窗口采集控制器（PLC 触发模式）
-│   ├── double_buffer.py          # 双缓冲共享内存
-│   └── capture_process.py        # 采集进程
+│   └── capture_window.py         # PLC 触发采集窗口状态机
 ├── drivers/
 │   ├── factory.py                # 驱动工厂（自动选 Mock/真实）
 │   ├── basler_camera.py          # Basler GigE 相机驱动
@@ -178,18 +177,19 @@ coal_detection/
 │   ├── device_detector.py        # 设备级检测（多格栅聚合）
 │   └── judge.py                  # 三级置信度判定
 ├── plc/
-│   └── allen_bradley.py          # AB PLC 通信（线程安全读写锁）
+│   └── allen_bradley.py          # AB PLC 通信（9标签协议，线程安全）
 ├── web/
-│   ├── unified_app.py            # 统一 Web 应用（FastAPI）
+│   ├── unified_app.py            # 统一 Web 应用（FastAPI，唯一入口）
 │   ├── state_manager.py          # 中央状态管理器
-│   ├── admin_api.py              # 管理员 API
+│   ├── admin_api.py              # 管理员 API（鉴权+限流）
 │   ├── common.py                 # WebSocket 推流（异步非阻塞）
-│   ├── templates/                # 页面模板
-│   └── static/                   # 暗色主题 + 动画 + WebSocket 重连
+│   ├── templates/                # 页面模板（总览/机器/漏斗/设置）
+│   └── static/                   # 浅色主题 + 可收起侧边栏
 ├── tools/
 │   ├── hardware_test.py          # 硬件连接测试
 │   └── integration_test_hw.py    # 联调测试
-├── tests/                        # 116 测试用例
+├── scripts/legacy/               # 旧 main.py 双进程架构（已归档）
+├── tests/                        # 测试用例
 └── logs/                         # 日志和报警图像
 ```
 
@@ -250,14 +250,14 @@ pytest tests/ -v
 | H1-H13 | HIGH | 13 项（详见整改文档） | 全部修复 |
 | M1-M8 | MEDIUM | 8 项（详见整改文档） | 全部修复 |
 
-共修复 **58 个安全漏洞**（经 12 轮 CODEX 审查迭代）。
+共修复 **65 个安全漏洞**（经 15 轮 CODEX 审查迭代）。
 
 包括：pypylon 枚举冲突崩溃根因、PLC 断连边沿通知、ID 白名单校验、
 相机自动重连（永不放弃）、故障事件 9 条路径闭环、
 PLC 断网后采集停滞修复（State 重置+异步重试）等。
 
 详细清单见 `docs/整改记录与已知限制.md`。
-CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V12.md`。
+CODEX 审查提示词见 `docs/CODEX_FINAL_REVIEW.md`。
 
 ## 稳定性验证
 
@@ -278,7 +278,7 @@ CODEX 审查提示词见 `docs/CODEX_REVIEW_PROMPT_V12.md`。
 | 部署报告 | docs/翻车机积煤检测系统_部署报告_V3.0.docx |
 | 整改记录 | docs/整改记录与已知限制.md |
 | PLC 点位表 | docs/PLC点位表配置.md |
-| CODEX 审查 | docs/CODEX_REVIEW_PROMPT_V12.md |
+| CODEX 审查 | docs/CODEX_FINAL_REVIEW.md |
 
 ## License
 

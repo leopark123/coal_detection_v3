@@ -2,11 +2,15 @@
 Web route contract smoke tests.
 """
 
+import importlib.util
+
+import pytest
 from fastapi.routing import APIWebSocketRoute
 
-from web.app import app as main_app
 from web.device_app import app as device_app
 from web.single_grid_app import app as single_app
+
+_has_web_app = importlib.util.find_spec("web.app") is not None
 
 
 def _route_methods(app):
@@ -23,7 +27,10 @@ def _websocket_paths(app):
     return {route.path for route in app.router.routes if isinstance(route, APIWebSocketRoute)}
 
 
+@pytest.mark.skipif(not _has_web_app, reason="web/app.py 已归档到 scripts/legacy/")
 def test_main_app_route_contract():
+    from web.app import app as main_app
+
     methods = _route_methods(main_app)
     ws_paths = _websocket_paths(main_app)
 
