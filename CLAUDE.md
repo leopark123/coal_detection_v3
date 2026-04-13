@@ -55,33 +55,29 @@ Web：FastAPI + WebSocket
 ```
 coal_detection/
 ├── CLAUDE.md               # 本文件 - 项目规范
-├── main.py                 # 主程序入口
+├── start_unified.py        # 开发模式入口（→ web.unified_app）
+├── start_production.bat    # 生产模式入口（看门狗自重启）
+├── start_monitor.bat       # 系统监控工具
+├── install_autostart.bat   # Windows 开机自启安装
+├── install_service.bat     # Windows 服务注册
+├── deploy_to_remote.bat    # 部署打包工具
 ├── requirements.txt        # 依赖清单
 ├── pytest.ini              # pytest 配置
-├── start_dev.bat           # 开发模式启动脚本
-├── start_web.bat           # Web 界面启动脚本
-├── start_web_local.bat     # 本地 Web 启动脚本
 │
 ├── config/
 │   ├── __init__.py
 │   ├── config.py           # 配置类（DEV_MODE 开关）
 │   ├── config_dev.yaml     # 开发环境配置
 │   ├── config_prod.yaml    # 生产环境配置
+│   ├── devices.yaml        # 多机多漏斗拓扑配置
+│   ├── devices_config.py   # 拓扑配置加载/校验
 │   ├── grid_baseline.yaml  # 格栅 ROI 标定数据（占位模板）
 │   ├── grid_baseline.json  # 格栅标定数据（实际标定，140 cells）
-│   ├── grid_manual.yaml    # GridEditorToolKit 产出（10×13，125 ROIs）
-│   ├── grid_precise.yaml   # 精确标定（10×13，125 ROIs）
-│   ├── grid_corrected.yaml # 修正版（12×9，108 ROIs）
-│   ├── grid_dev_corrected.yaml  # 开发分辨率修正版
-│   ├── single_grid_config.yaml  # 单格栅检测参数
 │   └── archive/            # 归档的旧配置文件
 │
-├── core/                   # 核心引擎（生产模式）
+├── core/                   # 核心引擎
 │   ├── __init__.py
-│   ├── double_buffer.py    # 双缓冲共享内存
-│   ├── frame_state.py      # 跨进程状态管理
-│   ├── capture_process.py  # 采集进程
-│   └── detect_process.py   # 检测进程
+│   └── capture_window.py   # PLC 触发采集窗口状态机
 │
 ├── drivers/                # 硬件驱动
 │   ├── __init__.py
@@ -100,24 +96,26 @@ coal_detection/
 │
 ├── plc/                    # PLC 通信
 │   ├── __init__.py
-│   └── allen_bradley.py    # AB PLC 实现（含心跳逻辑）
+│   └── allen_bradley.py    # AB PLC 实现（心跳 + 9标签协议）
 │
-├── web/                    # Web 界面
+├── web/                    # Web 界面（统一主线）
 │   ├── __init__.py
-│   ├── app.py              # FastAPI 主应用
-│   ├── common.py           # 共享工具（静态挂载、模板等）
-│   ├── device_app.py       # 设备级检测页面
-│   ├── single_grid_app.py  # 单格栅检测页面
-│   ├── static/             # 静态资源（自动创建）
-│   └── templates/          # 页面模板（内联 CSS/JS）
+│   ├── unified_app.py      # FastAPI 主应用（唯一入口）
+│   ├── state_manager.py    # 中央状态管理器
+│   ├── admin_api.py        # 管理员鉴权 API
+│   ├── common.py           # 共享工具（线程池、WebSocket等）
+│   ├── static/             # 静态资源（CSS/JS/侧边栏）
+│   └── templates/          # 页面模板（总览/机器/漏斗/设置）
 │
 ├── tools/                  # 工具脚本（格栅标定、检测调试等）
 │   ├── generate_test_images.py
+│   ├── hardware_test.py    # 硬件连通性测试
 │   ├── grid_calibrator.py
 │   ├── performance_profiler.py
 │   └── ...                 # 其他标定/检测工具
 │
 ├── scripts/                # 归档的调试/启动脚本
+│   ├── legacy/             # 旧 main.py 主线（已废弃）
 │   ├── fixes/              # 配置修复脚本
 │   ├── grid_editors/       # 格栅编辑器启动脚本
 │   ├── tests/              # 根目录迁移的测试脚本

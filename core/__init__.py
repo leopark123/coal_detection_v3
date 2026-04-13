@@ -1,14 +1,10 @@
 """
-翻车机积煤检测系统 V3.0 - 多进程核心架构
+翻车机积煤检测系统 V3.0 - 核心模块
 
-关键组件：
-1. DoubleBuffer - 双缓冲共享内存
-2. FrameState - 跨进程状态管理
-3. CaptureProcess - 采集进程（永不阻塞）
-4. DetectProcess - 检测进程（跟不上就跳帧）
+当前组件：
+1. CaptureWindowController - PLC 触发采集窗口状态机
 
-设计原则：
-- 采集永不停：采集进程永不等待检测进程
-- 最新优先：检测进程总是处理最新帧
-- 性能监控：统计跳帧率、延迟等指标
+已归档组件（scripts/legacy/）：
+- DoubleBuffer, FrameState, CaptureProcess, DetectProcess
+- 旧双进程架构，已被统一 Web 主线取代
 """
