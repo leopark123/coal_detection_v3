@@ -478,6 +478,13 @@ class AllenBradleyPLC:
                         continue
                     try:
                         result = self.plc.write("IPC_Heartbeat", hb_val)
+                        # 心跳成功时顺带刷新 IPC_Online=True（同一把锁内）
+                        # 防止 PLC 掉电重启后标签被清零而视觉侧不感知
+                        if not result.error:
+                            try:
+                                self.plc.write("IPC_Online", True)
+                            except Exception:
+                                pass  # 不影响心跳主逻辑
                     finally:
                         self._io_lock.release()
                     if result.error:
