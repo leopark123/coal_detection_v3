@@ -182,15 +182,25 @@ coal_detection/
 │   ├── unified_app.py            # 统一 Web 应用（FastAPI，唯一入口）
 │   ├── state_manager.py          # 中央状态管理器
 │   ├── admin_api.py              # 管理员 API（鉴权+限流）
+│   ├── archive_worker.py         # 异步归档 Worker（V3.0.12+）
+│   ├── archive_janitor.py        # 归档清理守护线程（V3.0.12+）
 │   ├── common.py                 # WebSocket 推流（异步非阻塞）
 │   ├── templates/                # 页面模板（总览/机器/漏斗/设置）
 │   └── static/                   # 浅色主题 + 可收起侧边栏
 ├── tools/
 │   ├── hardware_test.py          # 硬件连接测试
 │   └── integration_test_hw.py    # 联调测试
-├── scripts/legacy/               # 旧 main.py 双进程架构（已归档）
 ├── tests/                        # 测试用例
-└── logs/                         # 日志和报警图像
+├── logs/                         # 日志和报警图像
+└── non_mainline/                 # 非主线内容统一归档
+    ├── history/
+    │   ├── scripts/legacy/       # 旧 main.py 双进程架构（已归档）
+    │   └── archive/              # 更早期实验/迁移/标定历史
+    ├── documentation/
+    │   ├── docs/                 # 方案、部署、审查文档
+    │   └── handoff/              # AI 交接与台账
+    └── artifacts/
+        └── root_cache/           # 根目录缓存/覆盖率等运行产物
 ```
 
 ## 开发模式 vs 生产模式
@@ -209,8 +219,33 @@ coal_detection/
 
 ```powershell
 pytest tests/ -v
-# 当前: 116 passed
+# 当前: 137 passed, 9 skipped, 0 failed（含 30 项归档模块测试）
 ```
+
+## 报警图像归档（V3.0.12+）
+
+每个采集窗口结束后，`CaptureWindowController` 按策略挑选**一张代表帧**入队，
+`ArchiveWorker` 独立线程异步落盘；`ArchiveJanitor` 按 retention_days + 磁盘水位定时清理。
+
+- 报警帧（`ALARM_*`）永不丢失：队列满时淘汰非报警帧
+- 故障帧（`FAULT_*`）：`fault_code != 0` 的非报警窗口
+- 正常帧（`NORMAL_*`）：可通过 `archive_save_normal` 关闭
+- 清理策略：超过 `archive_retention_days` 按日期删，磁盘超过 `archive_disk_warning_pct` 降级删最旧 10%
+- 观测端点：`GET /api/archive/stats`（queue_depth / saved / dropped / io_errors / p50_p95 / disk_usage）
+
+配置示例（`config/config_prod.yaml`）：
+
+```yaml
+archive_enable: true
+archive_queue_max: 200
+archive_retention_days: 30
+archive_disk_warning_pct: 85.0
+archive_save_normal: true
+archive_jpeg_quality: 85
+archive_janitor_interval_s: 3600
+```
+
+30 漏斗规模下每天约 43200 张 × 200KB ≈ 8.6GB，30 天 retention ≈ 258GB。
 
 ## 相机 I/O 线缆（Hirose 6-pin）
 
@@ -256,8 +291,8 @@ pytest tests/ -v
 相机自动重连（永不放弃）、故障事件 9 条路径闭环、
 PLC 断网后采集停滞修复（State 重置+异步重试）等。
 
-详细清单见 `docs/整改记录与已知限制.md`。
-CODEX 审查提示词见 `docs/CODEX_FINAL_REVIEW.md`。
+详细清单见 `non_mainline/documentation/docs/整改记录与已知限制.md`。
+CODEX 审查提示词见 `non_mainline/documentation/docs/CODEX_FINAL_REVIEW.md`。
 
 ## 稳定性验证
 
@@ -267,19 +302,20 @@ CODEX 审查提示词见 `docs/CODEX_FINAL_REVIEW.md`。
 | 内存 | 持续增长 | 177-198MB 稳定 |
 | 线程 | 可能泄漏 | 63-69 稳定 |
 | 采集周期 | — | 2710+ 次正常循环 |
-| 测试 | — | 116 passed, 0 failed |
+| 测试 | — | 137 passed, 9 skipped, 0 failed |
 
 ## 文档
 
 | 文档 | 位置 |
 |------|------|
 | 项目规范 | CLAUDE.md |
-| 项目分析报告 | docs/project_analysis_report_v3.0.docx |
-| 部署报告 | docs/翻车机积煤检测系统_部署报告_V3.0.docx |
-| 整改记录 | docs/整改记录与已知限制.md |
-| PLC 点位表 | docs/PLC点位表配置.md |
-| CODEX 审查 | docs/CODEX_FINAL_REVIEW.md |
+| 项目分析报告 | non_mainline/documentation/docs/project_analysis_report_v3.0.docx |
+| 部署报告 | non_mainline/documentation/docs/翻车机积煤检测系统_部署报告_V3.0.docx |
+| 整改记录 | non_mainline/documentation/docs/整改记录与已知限制.md |
+| PLC 点位表 | non_mainline/documentation/docs/PLC点位表配置.md |
+| CODEX 审查 | non_mainline/documentation/docs/CODEX_FINAL_REVIEW.md |
 
 ## License
 
 Proprietary - 内部项目
+

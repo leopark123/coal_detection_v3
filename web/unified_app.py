@@ -367,6 +367,32 @@ async def api_all_faults():
     return state_manager.get_all_faults()
 
 
+@app.get("/api/archive/stats")
+async def api_archive_stats():
+    """
+    归档模块运行统计（worker 队列 + janitor 磁盘水位）
+
+    返回字段：
+      - enabled: 归档是否启用
+      - worker: {queue_depth, total_saved, alarm_saved, io_errors, p95_save_ms, ...}
+      - janitor: {retention_days, disk_usage_pct, total_cleaned_by_date, ...}
+    """
+    worker = getattr(state_manager, "archive_worker", None)
+    janitor = getattr(state_manager, "archive_janitor", None)
+
+    if worker is None:
+        return {
+            "enabled": False,
+            "reason": "归档未启用或启动失败（检查 archive_enable 配置与目录可写性）",
+        }
+
+    return {
+        "enabled": True,
+        "worker": worker.get_stats(),
+        "janitor": janitor.get_stats() if janitor is not None else {"enabled": False},
+    }
+
+
 @app.get("/api/machine/{machine_id}/faults")
 async def api_machine_faults(machine_id: str):
     """翻车机及其漏斗的故障详情"""

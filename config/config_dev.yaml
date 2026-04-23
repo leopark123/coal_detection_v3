@@ -68,9 +68,20 @@ USE_CUDA: false
 # 日志与存图
 # ═══════════════════════════════════════════════════════════════
 LOG_LEVEL: "DEBUG"
-SAVE_ALARM_IMAGES: true
-SAVE_INTERVAL_FRAMES: 20  # 开发时多存图，便于分析
+SAVE_ALARM_IMAGES: true           # [deprecated] 实际归档见下方 archive_* 配置
+SAVE_INTERVAL_FRAMES: 20          # [deprecated]
 IMAGE_SAVE_DIR: "logs/dev_images"
+
+# ═══════════════════════════════════════════════════════════════
+# 归档（V3.0.12+ 异步归档模块）
+# ═══════════════════════════════════════════════════════════════
+archive_enable: true
+archive_queue_max: 200
+archive_retention_days: 7         # 开发环境保留短一些
+archive_disk_warning_pct: 85.0
+archive_save_normal: true
+archive_jpeg_quality: 85
+archive_janitor_interval_s: 600   # 开发环境巡检更频繁
 
 # ═══════════════════════════════════════════════════════════════
 # 路径

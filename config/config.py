@@ -134,9 +134,20 @@ class Config:
     # 日志与存图
     # ═══════════════════════════════════════════════════════════════
     LOG_LEVEL: str = "INFO"
-    SAVE_ALARM_IMAGES: bool = True   # 报警时存图
-    SAVE_INTERVAL_FRAMES: int = 100  # 每N帧存一张（回放用）
-    IMAGE_SAVE_DIR: str = "logs/images"
+    SAVE_ALARM_IMAGES: bool = True   # [deprecated] 改用 archive_enable；保留供 ImageSaver 兼容
+    SAVE_INTERVAL_FRAMES: int = 100  # [deprecated] 已停用的定时存图间隔
+    IMAGE_SAVE_DIR: str = "logs/images"  # 归档目录（ArchiveWorker / Janitor 共用）
+
+    # ═══════════════════════════════════════════════════════════════
+    # 归档（V3.0.12+ 异步归档模块）
+    # ═══════════════════════════════════════════════════════════════
+    archive_enable: bool = True                  # 总开关：False 时 StateManager 不创建 worker
+    archive_queue_max: int = 200                 # ArchiveWorker 队列上限
+    archive_retention_days: int = 30             # Janitor 保留天数
+    archive_disk_warning_pct: float = 85.0       # 磁盘使用率预警阈值（百分比）
+    archive_save_normal: bool = True             # 是否保存正常窗口（False=仅报警/故障）
+    archive_jpeg_quality: int = 85               # JPEG 压缩质量（1-100）
+    archive_janitor_interval_s: float = 3600.0   # Janitor 巡检间隔秒数
     
     # ═══════════════════════════════════════════════════════════════
     # 路径
