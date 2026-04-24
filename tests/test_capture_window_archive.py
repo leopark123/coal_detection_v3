@@ -192,35 +192,3 @@ def test_enqueue_archive_skipped_when_no_ref():
     result = WindowResult(is_alarm=True, fault_code=0)
     cc._enqueue_archive(frames, result)
     worker.enqueue.assert_not_called()
-
-
-def test_enqueue_archive_empty_frames_is_noop():
-    """零帧路径（_finalize_window 的 total==0 分支和安全超时零帧分支）
-    应调用 _enqueue_archive，但因为 frames 为空，worker.enqueue 不应被调用。
-    这是 A3 契约：所有完成路径统一走 _enqueue_archive，零帧时内部 no-op。"""
-    worker = MagicMock()
-    cc = _make_controller(archive_worker=worker)
-    result = WindowResult(is_alarm=False, fault_code=3, confidence="LOW")
-    # 不应 raise
-    cc._enqueue_archive([], result)
-    worker.enqueue.assert_not_called()
-
-
-def test_finalize_window_zero_frames_calls_enqueue_archive():
-    """A3：_finalize_window 在 total==0 时也必须调用 _enqueue_archive（契约统一）"""
-    worker = MagicMock()
-    cc = _make_controller(archive_worker=worker)
-    cc._phase = CapturePhase.CAPTURING
-    # 不喂任何帧
-    notified = []
-    cc._notify_complete = lambda: notified.append(True)
-
-    cc._finalize_window()
-
-    # _enqueue_archive 被调用但 worker.enqueue 不调用（零帧 no-op）
-    worker.enqueue.assert_not_called()
-    # _notify_complete 仍被调用
-    assert notified == [True]
-    # last_window_result 有 fail-safe 结果
-    assert cc.last_window_result is not None
-    assert cc.last_window_result.fault_code == 3

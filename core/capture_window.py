@@ -244,9 +244,6 @@ class CaptureWindowController:
                         is_alarm=False,
                     )
                     logger.error("[CaptureWindow] 安全上限超时且零帧，写 fail-safe 结果")
-                    # 契约统一：所有完成路径都走 _enqueue_archive（零帧时内部会因
-                    # frames_with_ref 为空而 no-op，不会真的调用 worker）
-                    self._enqueue_archive([], self.last_window_result)
                     self._notify_complete()  # 触发回调写 PLC（fault_code=3 → can_tip=False）
                     self._write_plc_state(self.STATE_COMPLETE)
                     self._phase = CapturePhase.COMPLETE
@@ -269,8 +266,6 @@ class CaptureWindowController:
                         self._phase = CapturePhase.COMPLETE
                         logger.info("[CaptureWindow] → COMPLETE, 等待 PLC 复位")
                     else:
-                        # 窗口未成立（PLC 命令刚起就撤回，从未产生检测帧）。
-                        # 既没有 window_result 也没有帧，不归档；直接回 IDLE。
                         self._phase = CapturePhase.IDLE
                         self._write_plc_state(self.STATE_IDLE)
 
@@ -365,9 +360,7 @@ class CaptureWindowController:
                 confidence="LOW",
             )
             logger.warning("[CaptureWindow] 窗口内无有效帧")
-            # 契约统一：所有完成路径都走 _enqueue_archive（零帧时内部会因
-            # frames_with_ref 为空而 no-op，不会真的调用 worker）
-            self._enqueue_archive(frames, self.last_window_result)
+            # 无帧也可能需要归档（Janitor 统计），但无 frame 可存，跳过
             self._notify_complete()
             return
 
