@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import os
 import queue
-import re
 import shutil
 import threading
 import time
@@ -28,18 +27,6 @@ from typing import Any, Dict, Optional
 import cv2
 import numpy as np
 from loguru import logger
-
-
-# 文件名安全字符白名单（防路径注入 / 非法字符）
-_SAFE_TAG_RE = re.compile(r"[^A-Za-z0-9_\-]")
-
-
-def _sanitize_tag(value: str, default: str = "unknown", max_len: int = 64) -> str:
-    """把任意输入清洗为文件名安全片段（只保留字母数字下划线中划线）"""
-    if not value:
-        return default
-    cleaned = _SAFE_TAG_RE.sub("", str(value))[:max_len]
-    return cleaned or default
 
 
 class ArchiveWorker:
@@ -244,8 +231,7 @@ class ArchiveWorker:
             is_alarm = item["is_alarm"]
             fault_code = int(metadata.get("fault_code", 0) or 0)
 
-            # 文件名：{prefix}_{funnel_tag}_{yyyymmdd_HHMMSS}_{ms}_{reason}.jpg
-            # ms 避免同秒覆盖；reason 用于数据集筛选（first_alarm/middle/first_fault/...）
+            # 文件名：{prefix}_{funnel_tag}_{yyyymmdd_HHMMSS}.jpg
             if is_alarm:
                 prefix = "ALARM"
             elif fault_code != 0:
@@ -253,12 +239,10 @@ class ArchiveWorker:
             else:
                 prefix = "NORMAL"
 
-            funnel_tag = _sanitize_tag(metadata.get("funnel_tag"), default="unknown")
-            reason = _sanitize_tag(metadata.get("reason"), default="na", max_len=24)
+            funnel_tag = str(metadata.get("funnel_tag", "unknown"))
             window_end = float(metadata.get("window_end") or time.time())
             ts = time.strftime("%Y%m%d_%H%M%S", time.localtime(window_end))
-            ms = int((window_end - int(window_end)) * 1000)
-            filename = f"{prefix}_{funnel_tag}_{ts}_{ms:03d}_{reason}.jpg"
+            filename = f"{prefix}_{funnel_tag}_{ts}.jpg"
             filepath = self.save_dir / filename
 
             # 标注

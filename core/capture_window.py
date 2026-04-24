@@ -496,15 +496,11 @@ class CaptureWindowController:
 
         未配置 archive_worker 时直接返回。
         选帧失败或入队失败不影响主路径。
-
-        重要：方法结束时强制清空所有 frame_ref（置 None），
-        避免 self.last_window_result.frame_results 长期持有大 BGR 数据。
-        ArchiveWorker.enqueue 内部已 copy，原引用可以安全丢弃。
         """
-        try:
-            if self._archive_worker is None:
-                return
+        if self._archive_worker is None:
+            return
 
+        try:
             rep_frame, rep_meta = self._select_representative_frame(frames, window_result)
             if rep_frame is None:
                 return
@@ -527,12 +523,6 @@ class CaptureWindowController:
             )
         except Exception as e:
             logger.error(f"[CaptureWindow] 归档入队失败: {e}")
-        finally:
-            # 防内存泄漏：释放所有 frame 引用，避免 last_window_result
-            # 持有整窗 ~68 帧 × 5.76MB ≈ 400MB 直到下一窗口覆盖
-            for f in frames:
-                if isinstance(f, dict) and f.get("frame_ref") is not None:
-                    f["frame_ref"] = None
 
     def _notify_complete(self):
         """通知回调"""
