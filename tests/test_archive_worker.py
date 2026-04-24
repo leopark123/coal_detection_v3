@@ -241,3 +241,91 @@ def test_fault_prefix(tmp_path):
         assert stats["fault_saved"] == 1
     finally:
         w.stop()
+
+
+# ═════════════════════════════════════════════════════════════════════
+# 文件名格式锁定（V3.0.13 修复：补 ms + reason + sanitize）
+# ═════════════════════════════════════════════════════════════════════
+
+def test_filename_includes_ms_and_reason(tmp_path):
+    """文件名必须是 {prefix}_{funnel_tag}_{yyyymmdd_HHMMSS}_{ms:03d}_{reason}.jpg"""
+    cfg = _cfg(tmp_path)
+    w = ArchiveWorker(cfg)
+    assert w.start() is True
+    try:
+        # 用固定时间戳 + 已知 ms 小数
+        ts = 1714723200.123  # 2024-05-03 16:00:00.123 UTC
+        w.enqueue(
+            _fake_frame(),
+            is_alarm=True,
+            metadata={
+                "funnel_tag": "machine-1_funnel-1",
+                "window_end": ts,
+                "fault_code": 0,
+                "reason": "first_alarm",
+            },
+        )
+        _wait_queue_drain(w)
+        files = list(tmp_path.glob("*.jpg"))
+        assert len(files) == 1
+        name = files[0].name
+        # 前缀 / funnel_tag / reason 都应在文件名里
+        assert name.startswith("ALARM_machine-1_funnel-1_")
+        assert name.endswith("_first_alarm.jpg")
+        # ms 段应为 3 位数字（这里 123）
+        # 格式：ALARM_<tag>_<YYYYMMDD>_<HHMMSS>_<ms3>_<reason>.jpg
+        # 用 re 验证
+        import re
+        m = re.match(
+            r"^ALARM_machine-1_funnel-1_\d{8}_\d{6}_\d{3}_first_alarm\.jpg$",
+            name,
+        )
+        assert m is not None, f"文件名不符合格式：{name}"
+    finally:
+        w.stop()
+
+
+def test_filename_sanitizes_funnel_tag(tmp_path):
+    """funnel_tag 带路径注入字符应被清洗，不能跳出 save_dir"""
+    cfg = _cfg(tmp_path)
+    w = ArchiveWorker(cfg)
+    assert w.start() is True
+    try:
+        # 恶意 funnel_tag：../../etc/passwd
+        w.enqueue(
+            _fake_frame(),
+            is_alarm=True,
+            metadata={
+                "funnel_tag": "../../etc/passwd",
+                "window_end": time.time(),
+                "reason": "first_alarm",
+            },
+        )
+        _wait_queue_drain(w)
+        # 落盘必须仍在 save_dir 下，不能跳到上级目录
+        assert list(tmp_path.glob("*.jpg")), "文件应落在 save_dir 下"
+        # 文件名里不应该出现原始的 ../ 或 /
+        for f in tmp_path.glob("*.jpg"):
+            assert "/" not in f.name
+            assert "\\" not in f.name
+            assert ".." not in f.name
+    finally:
+        w.stop()
+
+
+def test_filename_sanitizes_missing_reason(tmp_path):
+    """reason 缺失时应用默认值 na，不应 raise 或出现异常字符"""
+    cfg = _cfg(tmp_path)
+    w = ArchiveWorker(cfg)
+    assert w.start() is True
+    try:
+        w.enqueue(
+            _fake_frame(),
+            is_alarm=True,
+            metadata={"funnel_tag": "t", "window_end": time.time()},  # 没有 reason
+        )
+        _wait_queue_drain(w)
+        files = list(tmp_path.glob("*_na.jpg"))
+        assert len(files) == 1
+    finally:
+        w.stop()
