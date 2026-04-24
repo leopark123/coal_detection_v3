@@ -70,20 +70,9 @@ USE_CUDA: true  # 如果有CUDA环境，建议启用
 # 日志与存图
 # ═══════════════════════════════════════════════════════════════
 LOG_LEVEL: "INFO"
-SAVE_ALARM_IMAGES: true           # [deprecated] 兼容保留，实际归档改用下方 archive_* 配置
-SAVE_INTERVAL_FRAMES: 100         # [deprecated]
+SAVE_ALARM_IMAGES: true
+SAVE_INTERVAL_FRAMES: 100
 IMAGE_SAVE_DIR: "logs/images"
-
-# ═══════════════════════════════════════════════════════════════
-# 归档（V3.0.12+ 异步归档模块）
-# ═══════════════════════════════════════════════════════════════
-archive_enable: true              # 总开关
-archive_queue_max: 200            # 队列上限（队列满时非报警帧优先丢弃）
-archive_retention_days: 30        # 保留天数（超过后 Janitor 清理）
-archive_disk_warning_pct: 85.0    # 磁盘使用率预警阈值（超过触发降级清理）
-archive_save_normal: true         # 是否保存正常窗口（false 仅保留报警/故障）
-archive_jpeg_quality: 85          # JPEG 压缩质量（1-100）
-archive_janitor_interval_s: 3600  # Janitor 巡检间隔（秒）
 
 # ═══════════════════════════════════════════════════════════════
 # 路径

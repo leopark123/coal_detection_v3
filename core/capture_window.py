@@ -19,12 +19,9 @@ PLC 标签：
 import time
 import threading
 from enum import Enum
-from typing import Optional, Callable, Dict, Any, List, Tuple, TYPE_CHECKING
+from typing import Optional, Callable, Dict, Any, List
 from dataclasses import dataclass, field
 from loguru import logger
-
-if TYPE_CHECKING:
-    import numpy as np
 
 
 class CapturePhase(str, Enum):
@@ -103,20 +100,7 @@ class CaptureWindowController:
     STATE_CAPTURING = 1
     STATE_COMPLETE = 2
 
-    def __init__(
-        self,
-        config: Optional[CaptureWindowConfig] = None,
-        plc=None,
-        archive_worker=None,
-        funnel_tag: str = "unknown",
-    ):
-        """
-        Args:
-            config: 窗口采集配置
-            plc: PLC 驱动实例（需有 read/write 方法）
-            archive_worker: 异步归档 worker（可选，None 表示禁用归档）
-            funnel_tag: 漏斗标识（用于归档文件名，格式: "machine-id_funnel-id"）
-        """
+    def __init__(self, config: Optional[CaptureWindowConfig] = None, plc=None):
         self.config = config or CaptureWindowConfig()
         self.plc = plc  # PLC 驱动实例（需有 read/write 方法）
         self._phase = CapturePhase.IDLE
@@ -133,10 +117,6 @@ class CaptureWindowController:
 
         # PLC 重连后 State 重置标志（由 state_manager 设置，tick() 重试）
         self._needs_state_reset: bool = False
-
-        # 归档 worker（异步）
-        self._archive_worker = archive_worker
-        self._funnel_tag = funnel_tag
 
         self._running = False
         self._capture_count = 0  # 总采集窗口计数
@@ -291,15 +271,8 @@ class CaptureWindowController:
         """当前是否应该采集帧"""
         return self._running and self._phase == CapturePhase.CAPTURING
 
-    def feed_result(self, result: Dict, frame=None):
-        """
-        喂入一帧的检测结果（仅 CAPTURING 阶段有效）
-
-        Args:
-            result: 检测结果字典（has_coal/coal_grids/alert_level/fault_code）
-            frame: 可选的原始 BGR 帧（numpy.ndarray），窗口结束时用于选代表帧归档。
-                   None 时不参与归档选帧。
-        """
+    def feed_result(self, result: Dict):
+        """喂入一帧的检测结果（仅 CAPTURING 阶段有效）"""
         if self._phase != CapturePhase.CAPTURING:
             return
 
@@ -310,7 +283,6 @@ class CaptureWindowController:
                 "coal_grids": result.get("coal_grids", 0),
                 "alert_level": result.get("alert_level", "UNKNOWN"),
                 "fault_code": result.get("fault_code", 0),
-                "frame_ref": frame,  # 可选的原始帧引用
             })
 
     def _read_plc_cmd(self) -> int:
@@ -360,7 +332,6 @@ class CaptureWindowController:
                 confidence="LOW",
             )
             logger.warning("[CaptureWindow] 窗口内无有效帧")
-            # 无帧也可能需要归档（Janitor 统计），但无 frame 可存，跳过
             self._notify_complete()
             return
 
@@ -391,7 +362,6 @@ class CaptureWindowController:
                 f"[CaptureWindow] 窗口内有效帧不足: {valid_count}/{total}, "
                 f"故障帧{len(fault_frames)}, 故障码={most_common_fault}, 置信度=LOW"
             )
-            self._enqueue_archive(frames, self.last_window_result)
             self._notify_complete()
             return
 
@@ -441,81 +411,7 @@ class CaptureWindowController:
             f"置信度={confidence}"
         )
 
-        # 异步归档：选代表帧入队（不阻塞主路径）
-        self._enqueue_archive(frames, result)
-
         self._notify_complete()
-
-    def _select_representative_frame(
-        self,
-        frames: List[Dict],
-        window_result: WindowResult,
-    ) -> Tuple[Any, Dict[str, Any]]:
-        """
-        选择代表帧。
-
-        选帧策略：
-        - 报警窗口：选第一个 has_coal=True 的有效帧
-        - 故障窗口：选第一个 fault_code!=0 的帧
-        - 正常窗口：选窗口中间时刻的有效帧
-        - 无 frame_ref 的帧跳过
-
-        Returns:
-            (frame, reason_meta)：frame 为 None 表示无可用帧
-        """
-        frames_with_ref = [f for f in frames if f.get("frame_ref") is not None]
-        if not frames_with_ref:
-            return None, {}
-
-        if window_result.is_alarm:
-            for f in frames_with_ref:
-                if f.get("has_coal"):
-                    return f["frame_ref"], {"reason": "first_alarm"}
-            return frames_with_ref[0]["frame_ref"], {"reason": "fallback_first"}
-
-        if window_result.fault_code != 0:
-            for f in frames_with_ref:
-                if f.get("fault_code", 0) != 0:
-                    return f["frame_ref"], {"reason": "first_fault"}
-            return frames_with_ref[0]["frame_ref"], {"reason": "fallback_first"}
-
-        # 正常窗口：取中间帧
-        mid = frames_with_ref[len(frames_with_ref) // 2]
-        return mid["frame_ref"], {"reason": "middle"}
-
-    def _enqueue_archive(self, frames: List[Dict], window_result: WindowResult):
-        """
-        归档：选代表帧并投递到 archive_worker（不阻塞）。
-
-        未配置 archive_worker 时直接返回。
-        选帧失败或入队失败不影响主路径。
-        """
-        if self._archive_worker is None:
-            return
-
-        try:
-            rep_frame, rep_meta = self._select_representative_frame(frames, window_result)
-            if rep_frame is None:
-                return
-
-            self._archive_worker.enqueue(
-                frame=rep_frame,
-                is_alarm=window_result.is_alarm,
-                metadata={
-                    "funnel_tag": self._funnel_tag,
-                    "window_start": window_result.window_start,
-                    "window_end": window_result.window_end,
-                    "alarm_ratio": window_result.alarm_ratio,
-                    "confidence": window_result.confidence,
-                    "fault_code": window_result.fault_code,
-                    "total_frames": window_result.total_frames,
-                    "alarm_frames": window_result.alarm_frames,
-                    "coal_grids_avg": window_result.coal_grids_avg,
-                    **rep_meta,
-                },
-            )
-        except Exception as e:
-            logger.error(f"[CaptureWindow] 归档入队失败: {e}")
 
     def _notify_complete(self):
         """通知回调"""

@@ -25,8 +25,6 @@ from drivers.factory import create_camera, create_plc
 from algo.device_detector import DeviceDetector
 from web.common import StreamAppState, append_bounded
 from core.capture_window import CaptureWindowController, CaptureWindowConfig
-from web.archive_worker import ArchiveWorker
-from web.archive_janitor import ArchiveJanitor
 
 
 class FunnelState(StreamAppState):
@@ -108,9 +106,6 @@ class StateManager:
         # 故障事件日志（最近 50 条）
         self._fault_events: List[Dict] = []
         self._fault_events_max = 50
-        # 归档（所有漏斗共享一个 worker + janitor）
-        self.archive_worker: Optional[ArchiveWorker] = None
-        self.archive_janitor: Optional[ArchiveJanitor] = None
 
     def add_fault_event(self, device: str, event_type: str, message: str):
         """记录一条故障事件"""
@@ -131,30 +126,10 @@ class StateManager:
 
         为每个漏斗创建独立的 camera 和 detector 实例。
         为每台翻车机创建独立的 PLC 连接。
-        为整个系统创建一个归档 worker（所有漏斗共享）+ 一个清理 janitor。
         """
         self.devices_config = devices_config
         self.base_config = base_config
         self._yaml_path = yaml_path
-
-        # 启动归档 worker（共享给所有漏斗的 capture_controller）
-        # 启动失败时 worker 标记禁用，不影响主检测
-        if bool(getattr(base_config, "archive_enable", True)):
-            try:
-                self.archive_worker = ArchiveWorker(base_config)
-                if not self.archive_worker.start():
-                    logger.warning("[StateManager] 归档 worker 启动失败，归档禁用")
-                    self.archive_worker = None
-                else:
-                    # Janitor 依赖 worker 已启动（共用 save_dir 预检结果）
-                    self.archive_janitor = ArchiveJanitor(base_config)
-                    self.archive_janitor.start()
-            except Exception as e:
-                logger.error(f"[StateManager] 归档初始化异常，归档禁用: {e}")
-                self.archive_worker = None
-                self.archive_janitor = None
-        else:
-            logger.info("[StateManager] 归档已通过配置禁用 (archive_enable=False)")
 
         for mc in devices_config.machines:
             ms = MachineState(machine_id=mc.id, machine_config=mc)
@@ -200,21 +175,6 @@ class StateManager:
                     ms.plc.close()
                 except Exception as e:
                     logger.error(f"[StateManager] PLC 关闭失败 ({ms.machine_id}): {e}")
-
-        # 停止归档 janitor 再停 worker（janitor 可能正在读磁盘）
-        if self.archive_janitor is not None:
-            try:
-                self.archive_janitor.stop()
-            except Exception as e:
-                logger.error(f"[StateManager] 归档 janitor 关闭失败: {e}")
-            self.archive_janitor = None
-
-        if self.archive_worker is not None:
-            try:
-                self.archive_worker.stop(timeout=5.0)
-            except Exception as e:
-                logger.error(f"[StateManager] 归档 worker 关闭失败: {e}")
-            self.archive_worker = None
 
         self.machines.clear()
         logger.info("[StateManager] 所有资源已释放")
@@ -395,16 +355,13 @@ class StateManager:
                     }
                     append_bounded(fs.detection_history, history_entry, max_items=100)
 
-                    # 喂入窗口控制器（frame 用于窗口结束时选代表帧归档）
-                    cc.feed_result(
-                        {
-                            "has_coal": getattr(result, "device_has_coal", False),
-                            "coal_grids": getattr(result, "coal_grids", 0),
-                            "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
-                            "fault_code": getattr(result, "fault_code", 0),
-                        },
-                        frame=frame,
-                    )
+                    # 喂入窗口控制器
+                    cc.feed_result({
+                        "has_coal": getattr(result, "device_has_coal", False),
+                        "coal_grids": getattr(result, "coal_grids", 0),
+                        "alert_level": getattr(result, "device_alert_level", "UNKNOWN"),
+                        "fault_code": getattr(result, "fault_code", 0),
+                    })
 
                     # 控制帧率
                     self._bg_stop_event.wait(interval)
@@ -769,12 +726,7 @@ class StateManager:
             window_duration_s=getattr(fc, 'capture_window_s', 3.0),
             vote_threshold=getattr(fc, 'capture_vote_threshold', 0.6),
         )
-        fs.capture_controller = CaptureWindowController(
-            cap_cfg,
-            plc=ms.plc,
-            archive_worker=self.archive_worker,
-            funnel_tag=f"{mc.id}_{fc.id}",
-        )
+        fs.capture_controller = CaptureWindowController(cap_cfg, plc=ms.plc)
 
         # 设置窗口完成回调：写检测结果到 PLC
         def _on_window_complete(result, _ms=ms, _fs=fs):

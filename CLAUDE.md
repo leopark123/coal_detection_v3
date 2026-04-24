@@ -103,8 +103,6 @@ coal_detection/
 │   ├── unified_app.py      # FastAPI 主应用（唯一入口）
 │   ├── state_manager.py    # 中央状态管理器
 │   ├── admin_api.py        # 管理员鉴权 API
-│   ├── archive_worker.py   # 异步归档 Worker（代表帧写盘）
-│   ├── archive_janitor.py  # 归档清理守护线程（过期/水位）
 │   ├── common.py           # 共享工具（线程池、WebSocket等）
 │   ├── static/             # 静态资源（CSS/JS/侧边栏）
 │   └── templates/          # 页面模板（总览/机器/漏斗/设置）
@@ -116,6 +114,13 @@ coal_detection/
 │   ├── performance_profiler.py
 │   └── ...                 # 其他标定/检测工具
 │
+├── scripts/                # 归档的调试/启动脚本
+│   ├── legacy/             # 旧 main.py 主线（已废弃）
+│   ├── fixes/              # 配置修复脚本
+│   ├── grid_editors/       # 格栅编辑器启动脚本
+│   ├── tests/              # 根目录迁移的测试脚本
+│   └── web_variants/       # Web 启动变体
+│
 ├── tests/                  # 测试
 │   ├── __init__.py
 │   ├── test_detector.py    # 算法单元测试
@@ -124,29 +129,22 @@ coal_detection/
 │   ├── test_config_env.py  # 配置环境测试
 │   ├── test_web_routes_contract.py  # Web API 契约测试
 │   ├── test_web_common.py  # Web 工具测试
-│   ├── test_archive_worker.py       # 归档 Worker 单元测试（V3.0.12+）
-│   ├── test_archive_janitor.py      # 归档清理单元测试（V3.0.12+）
-│   ├── test_capture_window_archive.py  # 采集窗口归档改造测试（V3.0.12+）
 │   └── mock_data/          # 测试图片
 │       ├── clean/
 │       ├── coal_light/
 │       ├── coal_heavy/
 │       └── edge_cases/
 │
-├── logs/                   # 日志目录
-│   └── images/             # 归档目录：窗口代表帧（ALARM_*/FAULT_*/NORMAL_*.jpg）
-│                           # 由 ArchiveWorker 异步写入，ArchiveJanitor 按 retention_days 清理
-│                           # 历史 ~74000 张 21GB 为旧版连续存图，已归档到 non_mainline/
+├── GridEditorToolKit/      # 格栅编辑器工具包
 │
-└── non_mainline/           # 非主线内容统一归档
-    ├── history/
-    │   ├── scripts/        # 旧入口、旧启动脚本
-    │   └── archive/        # 更早期实验、迁移、标定工具
-    ├── documentation/
-    │   ├── docs/           # 方案、部署、审查文档
-    │   └── handoff/        # AI 交接材料、台账
-    └── artifacts/
-        └── root_cache/     # 根目录缓存、pytest 缓存、覆盖率文件
+├── handoff/                # AI 交接文档
+│
+├── logs/                   # 日志目录
+│   └── images/             # 报警图像存档（~74000 张，21GB）
+│
+└── docs/                   # 文档
+    ├── 开发详细方案.md
+    └── ...                 # 方案文档、使用指南等
 ```
 
 ---
@@ -477,88 +475,6 @@ def detect_loop():
 
 ---
 
-## 七点五、异步归档系统（V3.0.12+）
-
-### 7.5.1 设计目标
-
-> **判定循环永不因落盘阻塞**。归档走独立线程、有界队列、反压丢非报警保报警。
-
-| 目标 | 手段 |
-|------|------|
-| 判定循环零阻塞 | `ArchiveWorker` 单独 daemon 线程 + `queue.Queue(maxsize)` |
-| 每窗口最多 1 张 | `CaptureWindowController._select_representative_frame` 代表帧策略 |
-| 报警绝不丢 | 队列满时 `_make_room_for_alarm` 淘汰最早的非报警帧 |
-| 磁盘不爆 | `ArchiveJanitor` 按 `retention_days` + 水位 `warning_pct` 清理 |
-| 故障隔离 | `_enqueue_archive` 整体 try/except，异常只记日志 |
-
-### 7.5.2 代表帧策略（`_select_representative_frame`）
-
-| 窗口类型 | 选帧策略 | `reason` 标签 |
-|----------|----------|---------------|
-| `is_alarm=True`，有 `has_coal=True` 帧 | 第一个 `has_coal=True` | `first_alarm` |
-| `is_alarm=True`，但无 `has_coal=True` | 兜底取第一张 | `fallback_first` |
-| `is_alarm=False` 且 `fault_code != 0` | 第一个 `fault_code != 0` | `first_fault` |
-| 正常窗口 | 中间帧（抗单帧噪声） | `middle` |
-| 所有帧 `frame_ref=None` | 跳过归档（不调用 worker） | — |
-
-### 7.5.3 文件命名与前缀
-
-```
-<PREFIX>_<funnel_tag>_<YYYYMMDD_HHMMSS>_<ms>_<reason>.jpg
-```
-
-| 前缀 | 条件 |
-|------|------|
-| `ALARM_` | `is_alarm=True` |
-| `FAULT_` | `is_alarm=False` 且 `fault_code != 0` |
-| `NORMAL_` | 其他（需 `archive_save_normal=True`） |
-
-### 7.5.4 配置项（`config/config_*.yaml`）
-
-```yaml
-archive_enable: true                # 总开关
-archive_queue_max: 200              # 队列上限（超过反压）
-archive_retention_days: 30          # 保留天数（开发环境建议 7）
-archive_disk_warning_pct: 85.0      # 水位阈值（超过降级删最旧 10%）
-archive_save_normal: true           # 是否保存正常帧
-archive_jpeg_quality: 85            # JPEG 质量（生产建议 80-85）
-archive_janitor_interval_s: 3600    # 清理巡检周期（秒）
-```
-
-### 7.5.5 API 观测
-
-```
-GET /api/archive/stats
-→ {
-    "worker": {
-      "queue_depth": 0, "queue_max": 200,
-      "total_saved": 123, "alarm_saved": 45, "normal_saved": 70, "fault_saved": 8,
-      "dropped_full": 0, "dropped_non_alarm": 3, "dropped_alarm": 0, "io_errors": 0,
-      "last_save_ms": 12.3, "p50_save_ms": 10.5, "p95_save_ms": 18.7,
-      "disk_usage_pct": 47.2, "startup_ok": true,
-      ...
-    },
-    "janitor": {
-      "last_cleaned_by_date": 5, "last_cleaned_by_size": 0,
-      "total_cleaned_by_date": 312, "total_cleaned_by_size": 0,
-      "current_disk_usage_pct": 47.2, ...
-    }
-  }
-```
-
-### 7.5.6 容量估算（30 漏斗 / 30 天）
-
-| 项 | 值 |
-|----|----|
-| 每漏斗每天窗口数（30s/窗口） | 2880 |
-| 30 漏斗每天窗口数 | 86400 |
-| 按 50% 命中代表帧（部分无 frame_ref） | ~43200 张/天 |
-| 单张 JPEG（1600×1200, q=85） | ~200KB |
-| 每天总量 | ~8.6GB |
-| 30 天 retention | ~258GB（建议预留 >300GB） |
-
----
-
 ## 八、代码规范
 
 ### 8.1 命名规范
@@ -807,10 +723,9 @@ start_production.bat
 ## 十三、联系方式
 
 - 技术支持：[内部联系方式]
-- 文档更新：提交 PR 到 non_mainline/documentation/docs/ 目录
+- 文档更新：提交 PR 到 docs/ 目录
 - Bug 反馈：提交 Issue
 
 ---
 
 **最后提醒**：本系统直接关联翻车机安全连锁，任何改动都要考虑"如果这里出错，翻车机会怎样"。宁可漏报（人工确认），不可误报（积煤被翻倒卡住设备）。
-

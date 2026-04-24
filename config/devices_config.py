@@ -200,10 +200,6 @@ def build_funnel_config(
         "VOTE_WINDOW_SIZE", "VOTE_THRESHOLD",
         "USE_CUDA", "LOG_LEVEL",
         "SAVE_ALARM_IMAGES", "SAVE_INTERVAL_FRAMES", "IMAGE_SAVE_DIR",
-        # 归档（V3.0.12+）
-        "archive_enable", "archive_queue_max", "archive_retention_days",
-        "archive_disk_warning_pct", "archive_save_normal",
-        "archive_jpeg_quality", "archive_janitor_interval_s",
         "REFERENCE_IMAGE_PATH", "MOCK_SOURCE_DIR",
         "MOCK_CAMERA_FAIL_RATE", "MOCK_PLC_DELAY_MAX", "MOCK_ENABLE_FAULT_INJECTION",
         "USE_REAL_GRID_IN_DEV",
