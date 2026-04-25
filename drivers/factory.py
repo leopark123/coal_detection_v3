@@ -61,7 +61,3 @@ def create_plc(config):
             )
 
 
-def create_image_saver(config):
-    """创建图像保存器"""
-    from .mock_drivers import ImageSaver
-    return ImageSaver(config)
