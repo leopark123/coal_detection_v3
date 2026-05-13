@@ -7,8 +7,8 @@ import importlib.util
 import pytest
 from fastapi.routing import APIWebSocketRoute
 
-from web.device_app import app as device_app
-from web.single_grid_app import app as single_app
+from non_mainline.legacy_apps.web.device_app import app as device_app
+from non_mainline.legacy_apps.web.single_grid_app import app as single_app
 
 _has_web_app = importlib.util.find_spec("web.app") is not None
 

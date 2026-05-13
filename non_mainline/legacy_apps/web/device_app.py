@@ -18,7 +18,8 @@ from loguru import logger
 
 # 添加项目路径
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.config import Config
 from drivers.factory import create_camera
@@ -50,7 +51,12 @@ app = FastAPI(
 )
 
 # 静态文件和模板
-templates = mount_static_and_templates(app)
+templates = mount_static_and_templates(
+    app,
+    static_dir=str(PROJECT_ROOT / "web" / "static"),
+    templates_dir=str(Path(__file__).parent / "templates"),
+    create_dirs=False,
+)
 
 class DeviceAppState(StreamAppState):
     """设备级应用状态"""

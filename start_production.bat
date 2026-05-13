@@ -2,7 +2,7 @@
 chcp 65001 >nul 2>nul
 title CoalDetection V3.0
 
-cd /d D:\coal_detection_project
+cd /d "%~dp0"
 set COAL_ENV=PROD
 
 if not exist logs mkdir logs

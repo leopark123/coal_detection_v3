@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul 2>nul
 title SystemMonitor - Coal Detection
-cd /d D:\coal_detection_project
+cd /d "%~dp0"
 echo Starting system monitor (interval=30s)...
 echo Press Ctrl+C to stop and see summary.
 echo.

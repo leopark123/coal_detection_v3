@@ -21,7 +21,11 @@ xcopy /E /I /Q "core" "%DEPLOY_DIR%\core\"
 xcopy /E /I /Q "drivers" "%DEPLOY_DIR%\drivers\"
 xcopy /E /I /Q "plc" "%DEPLOY_DIR%\plc\"
 xcopy /E /I /Q "web" "%DEPLOY_DIR%\web\"
-xcopy /E /I /Q "tools" "%DEPLOY_DIR%\tools\"
+mkdir "%DEPLOY_DIR%\tools"
+copy "tools\hardware_test.py" "%DEPLOY_DIR%\tools\"
+copy "tools\integration_test_hw.py" "%DEPLOY_DIR%\tools\"
+copy "tools\system_monitor.py" "%DEPLOY_DIR%\tools\"
+copy "tools\performance_profiler.py" "%DEPLOY_DIR%\tools\"
 
 echo [2/6] 复制配置和启动文件...
 copy "start_unified.py" "%DEPLOY_DIR%\"

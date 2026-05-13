@@ -55,3 +55,6 @@ uvicorn_*.log
 # 临时文件
 .tmp_*
 *.tmp
+
+# 本地诊断输出
+D*coal_detection_project*.txt

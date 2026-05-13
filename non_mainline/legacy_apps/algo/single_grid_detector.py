@@ -14,7 +14,7 @@ import time
 import yaml
 from loguru import logger
 
-from .detector import CoalDetector, DetectionResult, GridInfo
+from algo.detector import CoalDetector, DetectionResult, GridInfo
 
 
 class SingleGridResult:
