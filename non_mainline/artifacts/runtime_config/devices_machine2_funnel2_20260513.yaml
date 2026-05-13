@@ -1,0 +1,18 @@
+machines:
+- id: machine-2
+  name: 2#翻车机
+  plc_ip: 192.168.1.20
+  plc_timeout_ms: 3000
+  plc_heartbeat_interval_ms: 500
+  funnels:
+  - id: funnel-2
+    name: 2#漏斗
+    camera_ip: 192.168.1.18
+    pixel_format: mono
+    camera_timeout_ms: 5000
+    grid_count: 125
+    grid_config_path: config/grid_manual.yaml
+    capture_cycle_s: 30.0
+    capture_window_s: 3.0
+    capture_delay_s: 2.0
+    capture_vote_threshold: 0.6
