@@ -37,11 +37,11 @@ class CaptureWindowConfig:
     """
     窗口采集配置
 
-    注意：采集起止时机完全由 PLC 控制（PLC_CaptureCmd），
-    服务器不做时间截止。以下 window_duration_s 仅用于 UI 显示。
-    max_capture_s 是安全上限，防止 PLC 故障导致永远采集。
+    PLC_CaptureCmd=1 触发采集，服务器按 window_duration_s 截止并写
+    Vision_CaptureState=2，PLC 看到完成状态后复位 PLC_CaptureCmd。
+    max_capture_s 是安全上限，防止异常配置导致永远采集。
     """
-    window_duration_s: float = 3.0    # UI 显示用（实际由 PLC 控制）
+    window_duration_s: float = 3.0    # 实际采集窗口长度
     vote_threshold: float = 0.6       # 投票阈值（0-1，超过该比例报警才输出报警）
     poll_interval_s: float = 0.2      # 轮询 PLC 指令的间隔（秒）
     max_capture_s: float = 60.0       # 安全上限：超过此时间强制停止采集（防 PLC 故障）
@@ -206,48 +206,43 @@ class CaptureWindowController:
                     )
 
         elif self._phase == CapturePhase.CAPTURING:
-            # 安全上限：防止 PLC 故障导致永远采集
             capture_elapsed = now - self._window_start_time
+            if capture_elapsed >= self.config.window_duration_s:
+                logger.info(
+                    f"[CaptureWindow] 采集窗口到时 "
+                    f"({len(self._frame_results)} frames, {capture_elapsed:.1f}s)"
+                )
+                self._finalize_window()
+                self._write_plc_state(self.STATE_COMPLETE)
+                self._phase = CapturePhase.COMPLETE
+                logger.info("[CaptureWindow] → COMPLETE, 等待 PLC 复位")
+                return self._phase
+
+            # 安全上限：防止异常配置或时钟问题导致永远采集
             if capture_elapsed >= self.config.max_capture_s:
                 logger.error(
                     f"[CaptureWindow] 采集超过安全上限 {self.config.max_capture_s}s，强制停止！"
                 )
-                if self._frame_results:
-                    self._finalize_window()
-                    self._write_plc_state(self.STATE_COMPLETE)
-                    self._phase = CapturePhase.COMPLETE
-                else:
-                    # 零帧超时：必须 fail-safe，写故障结果到 PLC
-                    self.last_window_result = WindowResult(
-                        fault_code=3,
-                        confidence="LOW",
-                        is_alarm=False,
-                    )
-                    logger.error("[CaptureWindow] 安全上限超时且零帧，写 fail-safe 结果")
-                    self._notify_complete()  # 触发回调写 PLC（fault_code=3 → can_tip=False）
-                    self._write_plc_state(self.STATE_COMPLETE)
-                    self._phase = CapturePhase.COMPLETE
+                self._finalize_window()
+                self._write_plc_state(self.STATE_COMPLETE)
+                self._phase = CapturePhase.COMPLETE
                 return self._phase
 
-            # 轮询 PLC：只看 PLC 指令决定是否停止
+            # 轮询 PLC：允许 PLC 取消或紧急复位
             if now - self._last_poll_time >= self.config.poll_interval_s:
                 self._last_poll_time = now
                 cmd = self._read_plc_cmd()
 
                 if cmd == self.CMD_IDLE:
-                    # PLC 把 CaptureCmd 置 0（回位信号消失触发 Rung 9）→ 停止采集
+                    # 非正常提前复位（如回位信号消失）→ 立即停止并输出已有窗口结果
                     logger.info(
-                        f"[CaptureWindow] PLC 停止采集 "
+                        f"[CaptureWindow] PLC 提前复位，停止采集 "
                         f"({len(self._frame_results)} frames)"
                     )
-                    if self._frame_results:
-                        self._finalize_window()
-                        self._write_plc_state(self.STATE_COMPLETE)
-                        self._phase = CapturePhase.COMPLETE
-                        logger.info("[CaptureWindow] → COMPLETE, 等待 PLC 复位")
-                    else:
-                        self._phase = CapturePhase.IDLE
-                        self._write_plc_state(self.STATE_IDLE)
+                    self._finalize_window()
+                    self._write_plc_state(self.STATE_COMPLETE)
+                    self._phase = CapturePhase.COMPLETE
+                    logger.info("[CaptureWindow] → COMPLETE, 等待 PLC 复位")
 
                 elif cmd == self.CMD_CANCEL:
                     logger.warning("[CaptureWindow] PLC 取消采集")

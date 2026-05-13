@@ -294,6 +294,20 @@ class MockPLC:
         logger.info(f"[MockPLC] Vision_Enable = {enabled}")
         return True
 
+    def send_detection_result(self, coal_present: bool, confidence: str,
+                              need_manual: bool, fault_code: int = 0):
+        """模拟真实 PLC 的检测结果写回接口。"""
+        can_tip = (coal_present is False) and (not need_manual) and (fault_code == 0)
+        result_valid = (confidence in ("HIGH", "MEDIUM")) and (fault_code == 0) and (coal_present is not None)
+        self.write("Vision_CanTip", can_tip)
+        self.write("Vision_FaultCode", fault_code)
+        self.write("Vision_ResultValid", result_valid)
+        logger.info(
+            f"[MockPLC] 检测结果已写入 - "
+            f"可翻转:{can_tip}, 结果可信:{result_valid}, "
+            f"置信度:{confidence}, 故障码:{fault_code}"
+        )
+
     def close(self):
         """关闭连接"""
         logger.info(f"[MockPLC] 关闭，共写入 {self.write_count} 次")

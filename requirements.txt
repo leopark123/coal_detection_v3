@@ -15,10 +15,10 @@ python-multipart>=0.0.6
 jinja2>=3.1.0
 
 # 相机驱动（生产环境 - Basler GigE）
-# pypylon>=3.0.0
+pypylon>=3.0.0
 
 # PLC 通信（生产环境 - CompactLogix 1769-L16ER）
-# pycomm3>=1.2.0
+pycomm3>=1.2.0
 
 # 测试
 pytest>=7.0.0

@@ -156,11 +156,25 @@ class DeviceDetector(CoalDetector):
                 result.visible_percentage = visible_grids / result.total_grids * 100
                 result.coal_percentage = coal_grids / result.total_grids * 100
 
-                # 设备级判断
-                device_status = self._judge_device_status(coal_grids, result.total_grids)
-                result.device_has_coal = device_status['has_coal']
-                result.device_confidence = device_status['confidence']
-                result.device_alert_level = device_status['alert_level']
+                min_visible_ratio = getattr(self.config, "GRID_VISIBLE_THRESHOLD", 0.85)
+                visible_ratio = visible_grids / result.total_grids if result.total_grids > 0 else 0.0
+                if visible_ratio < min_visible_ratio:
+                    result.quality_ok = False
+                    result.fault_code = 3
+                    result.device_has_coal = False
+                    result.device_confidence = "LOW"
+                    result.device_alert_level = "WARNING"
+                    logger.warning(
+                        f"[DeviceDetector] 格栅可见率不足: "
+                        f"{visible_grids}/{result.total_grids} ({visible_ratio:.0%}) "
+                        f"< {min_visible_ratio:.0%}"
+                    )
+                else:
+                    # 设备级判断
+                    device_status = self._judge_device_status(coal_grids, result.total_grids)
+                    result.device_has_coal = device_status['has_coal']
+                    result.device_confidence = device_status['confidence']
+                    result.device_alert_level = device_status['alert_level']
 
                 # 更新统计
                 self.detection_count += 1

@@ -245,40 +245,26 @@ class StateManager:
                     self._bg_stop_event.wait(1.0)
                     continue
 
-                # 无相机或断连时自动重连
-                # 策略：
-                #   从未连接过(_ever_connected=False) → 不重连（IP不存在，避免pypylon枚举冲突）
-                #   曾连接过(_ever_connected=True)   → 快速5次(10秒) → 慢速(60秒)永不放弃
+                # 无相机或断连时自动重连。
+                # 首次启动未连上的相机也进入慢速重连，避免相机/交换机晚于服务上线时永久不可用。
                 if not fs.camera or not getattr(fs.camera, 'is_connected', False):
                     FAST_MAX = 5
                     FAST_INTERVAL = 10.0
                     SLOW_INTERVAL = 60.0
 
-                    # 从未连接成功过的相机不重连（IP 不存在的漏斗）
                     ever_connected = getattr(fs, '_ever_connected', False)
-                    if not ever_connected:
-                        if fs.fault_info["camera"]["status"] != "not_available":
-                            fs.fault_info["camera"] = {
-                                "status": "not_available",
-                                "error": getattr(fs.camera, 'last_error', '相机未初始化') if fs.camera else "相机未初始化",
-                                "since": time.time(),
-                                "reconnect_attempts": 0,
-                            }
-                            logger.info(f"[BgWorker:{tag}] 相机从未连接成功，不重连")
-                            self.add_fault_event(tag, "camera", "相机从未连接成功(IP不存在)，不重连")
-                        self._bg_stop_event.wait(SLOW_INTERVAL)
-                        continue
 
                     # 曾连接过 → 断电/更换后自动重连，永不放弃
-                    if fs.fault_info["camera"]["status"] != "disconnected":
+                    if fs.fault_info["camera"]["status"] not in ("disconnected", "not_available"):
                         cam_err = getattr(fs.camera, 'last_error', None) if fs.camera else "连接断开"
+                        status = "disconnected" if ever_connected else "not_available"
                         fs.fault_info["camera"] = {
-                            "status": "disconnected",
+                            "status": status,
                             "error": cam_err,
                             "since": time.time(),
                             "reconnect_attempts": 0,
                         }
-                        self.add_fault_event(tag, "camera", f"相机断开: {cam_err or '连接断开'}")
+                        self.add_fault_event(tag, "camera", f"相机未连接: {cam_err or '连接断开'}")
 
                     if not fs.camera or not hasattr(fs.camera, 'reconnect'):
                         self._bg_stop_event.wait(SLOW_INTERVAL)
@@ -286,7 +272,7 @@ class StateManager:
 
                     fs._reconnect_attempts += 1
                     fs.fault_info["camera"]["reconnect_attempts"] = fs._reconnect_attempts
-                    is_fast = fs._reconnect_attempts <= FAST_MAX
+                    is_fast = ever_connected and fs._reconnect_attempts <= FAST_MAX
                     wait_time = FAST_INTERVAL if is_fast else SLOW_INTERVAL
                     phase = f"{fs._reconnect_attempts}/{FAST_MAX}" if is_fast else "慢速"
 
@@ -545,14 +531,6 @@ class StateManager:
             validator = validators.get(key)
             if validator and not validator(value):
                 raise ValueError(f"参数 {key}={value} 超出有效范围")
-            # 更新 base_config
-            if hasattr(self.base_config, key):
-                setattr(self.base_config, key, value)
-            # 更新每个漏斗的 config
-            for ms in self.machines.values():
-                for fs in ms.funnels.values():
-                    if fs.config and hasattr(fs.config, key):
-                        setattr(fs.config, key, value)
             applied[key] = value
 
         # 组合约束校验：VOTE_THRESHOLD 不能大于 VOTE_WINDOW_SIZE
@@ -561,6 +539,16 @@ class StateManager:
         vw = applied.get("VOTE_WINDOW_SIZE", getattr(cfg, "VOTE_WINDOW_SIZE", 5))
         if vt > vw:
             raise ValueError(f"VOTE_THRESHOLD({vt}) 不能大于 VOTE_WINDOW_SIZE({vw})")
+
+        for key, value in applied.items():
+            # 更新 base_config
+            if hasattr(self.base_config, key):
+                setattr(self.base_config, key, value)
+            # 更新每个漏斗的 config
+            for ms in self.machines.values():
+                for fs in ms.funnels.values():
+                    if fs.config and hasattr(fs.config, key):
+                        setattr(fs.config, key, value)
 
         logger.info(f"[StateManager] 阈值已更新: {applied}")
         return applied
