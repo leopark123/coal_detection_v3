@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单格栅检测验证 - 阶段1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .video-panel {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-panel {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #67c3f3;
+            border-bottom: 2px solid #67c3f3;
+            padding-bottom: 10px;
+        }
+
+        .video-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0f1419;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #video-feed {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .status-card {
+            background: #0f1419;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .status-card h3 {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .status-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .status-normal { color: #4ade80; }
+        .status-warning { color: #fbbf24; }
+        .status-error { color: #ef4444; }
+        .status-unknown { color: #6b7280; }
+
+        .grid-info {
+            background: #0f1419;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .grid-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .grid-selector select {
+            flex: 1;
+            padding: 8px;
+            background: #16213e;
+            border: 1px solid #67c3f3;
+            border-radius: 5px;
+            color: #fff;
+        }
+
+        .grid-selector button {
+            padding: 8px 15px;
+            background: #67c3f3;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .grid-selector button:hover {
+            background: #5a9fd4;
+        }
+
+        .detection-stats {
+            background: #0f1419;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .confidence-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .confidence-high {
+            background: #16a34a;
+            color: white;
+        }
+
+        .confidence-medium {
+            background: #ca8a04;
+            color: white;
+        }
+
+        .confidence-low {
+            background: #dc2626;
+            color: white;
+        }
+
+        .log-panel {
+            background: #0f1419;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 单格栅检测验证系统</h1>
+        <p class="subtitle">阶段1: 算法验证与参数调优 | 目标格栅: {{ grid_id }} / {{ total_grids }}</p>
+    </div>
+
+    <div class="container">
+        <div class="grid-layout">
+            <!-- 视频显示区域 -->
+            <div class="video-panel">
+                <h2 class="panel-title">🎯 实时检测视图</h2>
+                <div class="video-container">
+                    <img id="video-feed" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="检测画面">
+                </div>
+                <div id="connection-status" class="status-unknown" style="text-align: center; margin-top: 10px;">
+                    连接中...
+                </div>
+            </div>
+
+            <!-- 控制面板 -->
+            <div class="control-panel">
+                <!-- 格栅选择 -->
+                <div class="grid-info">
+                    <h3 class="panel-title">🎛️ 格栅选择</h3>
+                    <div class="grid-selector">
+                        <select id="grid-selector">
+                            <!-- 动态生成选项 -->
+                        </select>
+                        <button id="switch-grid-btn">切换</button>
+                    </div>
+                    <div class="stat-row">
+                        <span>当前格栅:</span>
+                        <span id="current-grid">{{ grid_id }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>总格栅数:</span>
+                        <span id="total-grids">{{ total_grids }}</span>
+                    </div>
+                </div>
+
+                <!-- 检测状态 -->
+                <div class="status-grid">
+                    <div class="status-card">
+                        <h3>检测状态</h3>
+                        <div id="detection-status" class="value status-unknown">未知</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>置信度</h3>
+                        <div id="confidence" class="value status-unknown">-</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>处理时间</h3>
+                        <div id="process-time" class="value">-- ms</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>检测次数</h3>
+                        <div id="detection-count" class="value">{{ detection_count }}</div>
+                    </div>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="detection-stats">
+                    <h3 class="panel-title">📊 检测统计</h3>
+                    <div class="stat-row">
+                        <span>积煤检测次数:</span>
+                        <span id="coal-detections">{{ coal_detections }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>积煤检测率:</span>
+                        <span id="coal-rate">0.0%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>平均处理时间:</span>
+                        <span id="avg-process-time">-- ms</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>格栅可见率:</span>
+                        <span id="grid-visible-ratio">--%</span>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="action-buttons">
+                    <button id="save-logs-btn" class="btn btn-primary">保存日志</button>
+                    <button id="reset-stats-btn" class="btn btn-success">重置统计</button>
+                </div>
+
+                <!-- 实时日志 -->
+                <div class="log-panel">
+                    <h3 class="panel-title">📝 检测日志</h3>
+                    <div id="log-container">
+                        <div class="log-entry">系统启动中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket连接
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+        const videoFeed = document.getElementById('video-feed');
+        const connectionStatus = document.getElementById('connection-status');
+        const logContainer = document.getElementById('log-container');
+
+        let frameCount = 0;
+
+        ws.onopen = () => {
+            addLog('WebSocket连接成功', 'success');
+            connectionStatus.textContent = '已连接';
+            connectionStatus.className = 'status-normal';
+        };
+
+        ws.onclose = () => {
+            addLog('WebSocket连接断开', 'error');
+            connectionStatus.textContent = '已断开';
+            connectionStatus.className = 'status-error';
+        };
+
+        ws.onerror = (error) => {
+            addLog('WebSocket错误', 'error');
+            connectionStatus.textContent = '连接错误';
+            connectionStatus.className = 'status-error';
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                updateDisplay(data);
+                frameCount++;
+            } catch (e) {
+                console.error('数据解析错误:', e);
+            }
+        };
+
+        function updateDisplay(data) {
+            // 更新图像
+            if (data.image) {
+                videoFeed.src = `data:image/jpeg;base64,${data.image}`;
+            }
+
+            // 更新检测结果
+            if (data.result) {
+                const result = data.result;
+
+                document.getElementById('detection-status').textContent =
+                    result.has_coal ? '有积煤' : '正常';
+                document.getElementById('detection-status').className =
+                    `value ${result.has_coal ? 'status-error' : 'status-normal'}`;
+
+                // 更新置信度
+                const confidenceElement = document.getElementById('confidence');
+                confidenceElement.innerHTML = `
+                    <span class="confidence-badge confidence-${result.confidence.toLowerCase()}">
+                        ${result.confidence}
+                    </span>
+                `;
+
+                document.getElementById('process-time').textContent =
+                    `${result.process_time_ms.toFixed(1)} ms`;
+
+                document.getElementById('grid-visible-ratio').textContent =
+                    `${(result.grid_visible_ratio * 100).toFixed(1)}%`;
+            }
+
+            // 更新统计信息
+            if (data.statistics) {
+                const stats = data.statistics;
+                document.getElementById('detection-count').textContent = data.detection_count;
+                document.getElementById('coal-detections').textContent = data.coal_detections;
+                document.getElementById('coal-rate').textContent =
+                    `${(data.coal_rate * 100).toFixed(1)}%`;
+                document.getElementById('avg-process-time').textContent =
+                    `${stats.avg_process_time_ms.toFixed(1)} ms`;
+            }
+
+            // 添加日志
+            if (data.result) {
+                const status = data.result.has_coal ? '积煤' : '正常';
+                const confidence = data.result.confidence;
+                const time = data.result.process_time_ms.toFixed(1);
+                addLog(`帧${frameCount}: ${status} | ${confidence} | ${time}ms`);
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span style="color: #888">[${timestamp}]</span> ${message}`;
+
+            logContainer.appendChild(logEntry);
+
+            // 保持最新的日志在顶部
+            if (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 初始化格栅选择器
+        function initializeGridSelector() {
+            const selector = document.getElementById('grid-selector');
+            const totalGrids = parseInt(document.getElementById('total-grids').textContent);
+
+            for (let i = 0; i < totalGrids; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `格栅 ${i}`;
+                selector.appendChild(option);
+            }
+
+            // 设置当前选中的格栅
+            const currentGrid = parseInt(document.getElementById('current-grid').textContent);
+            selector.value = currentGrid;
+        }
+
+        // 切换格栅
+        document.getElementById('switch-grid-btn').onclick = async () => {
+            const newGridId = document.getElementById('grid-selector').value;
+
+            try {
+                const response = await fetch(`/api/grid/switch/${newGridId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    addLog(`已切换到格栅 ${newGridId}`, 'success');
+                    document.getElementById('current-grid').textContent = newGridId;
+
+                    // 重置统计显示
+                    document.getElementById('detection-count').textContent = '0';
+                    document.getElementById('coal-detections').textContent = '0';
+                    document.getElementById('coal-rate').textContent = '0.0%';
+                } else {
+                    addLog(`切换失败: ${result.error}`, 'error');
+                }
+            } catch (e) {
+                addLog('切换请求失败', 'error');
+            }
+        };
+
+        // 保存日志
+        document.getElementById('save-logs-btn').onclick = async () => {
+            try {
+                const response = await fetch('/api/save_logs', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    addLog('日志已保存', 'success');
+                } else {
+                    addLog(`保存失败: ${result.error}`, 'error');
+                }
+            } catch (e) {
+                addLog('保存请求失败', 'error');
+            }
+        };
+
+        // 重置统计（通过切换到当前格栅实现）
+        document.getElementById('reset-stats-btn').onclick = () => {
+            const currentGrid = document.getElementById('current-grid').textContent;
+            document.getElementById('grid-selector').value = currentGrid;
+            document.getElementById('switch-grid-btn').click();
+        };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeGridSelector();
+            addLog('单格栅检测系统已启动');
+        });
+    </script>
+</body>
+</html>

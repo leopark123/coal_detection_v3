@@ -1,0 +1,8 @@
+决策ID,日期,阶段,主题,背景问题,备选方案,最终决策,决策理由,影响范围,风险,回滚方案,状态,负责人,证据路径,备注
+ADR-20260219-001,2026-02-19,Phase-1,阶段策略,是否立即开发生产链路,A立即做生产 B先稳模拟后生产,先完成模拟链路稳定后再做生产接入,符合用户阶段要求且可降低返工,全局,低,若阶段条件变化可重新排期,生效,待指派,handoff/开发计划.md|handoff/开发约束表.csv,核心策略
+ADR-20260219-002,2026-02-19,Phase-1,WebSocket循环统一,三个Web应用存在重复循环逻辑,A分别维护 B抽到公共模块,抽取run_websocket_stream统一实现,减少重复并降低回归风险,web层,低,如有异常可回退到各自实现,生效,待指派,web/common.py|web/device_app.py|web/single_grid_app.py|web/app.py,已落地
+ADR-20260219-003,2026-02-19,Phase-1,pytest缓存策略,Windows权限导致pytest缓存目录异常,A保持默认 B禁用cacheprovider,禁用cacheprovider并显式测试路径,规避权限噪音并保持回归稳定,测试链路,低,后续权限恢复可评估启用,生效,待指派,pytest.ini,已落地
+ADR-20260219-004,2026-02-19,Phase-1,异常处理收敛,析构函数存在裸except,A保持裸except B改为except Exception,统一改为except Exception,提升可读性并避免过度吞错,core层,低,如需详细追踪可补日志,生效,待指派,core/capture_process.py|core/detect_process.py,已落地
+ADR-20260219-005,2026-02-19,Phase-1,静态资源初始化统一,web/app.py静态挂载逻辑与其他入口不一致,A各自维护 B公共函数化,新增mount_static并统一调用,入口一致性更好且便于扩展,web层,低,可回退原初始化代码,生效,待指派,web/common.py|web/app.py|tests/test_web_common.py,已落地
+ADR-20260219-006,2026-02-19,Phase-1,接口契约回归策略,接口清单存在但缺自动校验,A仅文档维护 B新增路由契约测试,新增tests/test_web_routes_contract.py并纳入全量回归,降低接口漂移风险并提升交接可执行性,web层与测试链路,低,若测试误报可先仅保留文档清单并修正断言,生效,待指派,tests/test_web_routes_contract.py|handoff/接口契约表.csv|handoff/测试与验收表.csv,已落地
+ADR-20260219-007,2026-02-19,Phase-1,模拟样本扩充前置策略,直接补样容易失衡且无法评估缺口,A先补样 B先盘点再补样,先完成样本盘点并输出分类缺口后再执行补样,保证补样方向可量化并可追溯,测试数据与集成验证,低,若盘点规则需调整可更新盘点文档并重算基线,生效,待指派,handoff/模拟样本盘点.md|handoff/数据集与标注表.csv|handoff/开发进度表.csv,已落地

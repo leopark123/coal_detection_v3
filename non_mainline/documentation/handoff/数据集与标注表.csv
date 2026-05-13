@@ -1,0 +1,4 @@
+数据版本,日期,来源,标注规则,样本量,用途,指标,状态,证据路径,备注
+DATA-SIM-20260219-V1,2026-02-19,手动添加照片,按单格栅与设备级结果对照检查,12,模拟阶段稳定化,回归通过率,进行中,tests/mock_data|tests/test_images|tests/sample_only|handoff/模拟样本盘点.md,当前分布不均衡
+DATA-SIM-20260219-V1-AUDIT,2026-02-19,现有测试目录盘点,按clean/coal_light/coal_heavy/edge_cases/lighting分类,mock_data=9 test_images=2 sample_only=1,样本缺口分析,分类覆盖率,已完成,handoff/模拟样本盘点.md|handoff/开发进度表.csv,建议优先补重煤和边界
+DATA-PROD-PLAN-V1,2026-02-19,待采集,生产链路接入后按统一规则标注,待定,生产阶段评估,准确率与时延,未开始,handoff/开发计划.md,需门禁通过后执行
