@@ -442,10 +442,9 @@ class CoalDetector:
                 roi_mean = sum(roi_means) / len(roi_means)
                 roi_std = sum(roi_stds) / len(roi_stds)
 
-                # 格栅区域判断：亮度和对比度都极低 = 不可检测
-                # 只要有一定对比度（std > 5），说明有纹理/结构，可以检测
-                if roi_mean < 8 and roi_std < 5:
-                    return False, f"格栅区域全黑 (roi_mean={roi_mean:.1f}, roi_std={roi_std:.1f})"
+                # 格栅区域判断：低照度下仅有噪声/弱纹理时，不能作为可信检测输入。
+                if roi_mean < 25 and roi_std < 12:
+                    return False, f"格栅区域过暗 (roi_mean={roi_mean:.1f}, roi_std={roi_std:.1f})"
 
         # ═══ 自适应模糊检测 ═══
         # 暗画面的 laplacian 天然偏低，阈值需要随亮度自适应
@@ -557,6 +556,14 @@ class CoalDetector:
 
             roi_gray = gray[y1:y2, x1:x2]
             roi_hsv = hsv[y1:y2, x1:x2]
+            total_pixels = roi_gray.size
+            mean_val = float(roi_gray.mean())
+            std_val = float(roi_gray.std())
+            edge_density = (
+                np.count_nonzero(cv2.Canny(roi_gray, 40, 120)) / max(1, total_pixels)
+            )
+            dark_ratio = np.count_nonzero(roi_gray < 90) / max(1, total_pixels)
+            roi_detectable = not (mean_val < 25 and std_val < 12 and edge_density < 0.08)
 
             # 格栅孔可见性检测
             _, binary = cv2.threshold(roi_gray, 60, 255, cv2.THRESH_BINARY_INV)
@@ -572,22 +579,21 @@ class CoalDetector:
                 baseline = roi_w * roi_h * 0.5  # 假设孔占 50%
                 visibility_score = min(max_area / baseline, 1.0)
 
-                if max_area > baseline * 0.6:
+                if roi_detectable and max_area > baseline * 0.6:
                     visible_count += 1.0
                     is_visible = True
-                elif max_area > baseline * 0.3:
+                elif roi_detectable and max_area > baseline * 0.3:
                     visible_count += 0.5
                     is_visible = True
 
-            # 兼容简单场景：当轮廓法不稳定时，使用暗像素占比辅助判定可见性
-            total_pixels = roi_gray.size
-            dark_ratio = np.count_nonzero(roi_gray < 90) / max(1, total_pixels)
-            if dark_ratio > 0.04:
+            # 暗像素只能作为辅助证据，必须同时存在足够对比或边缘结构。
+            structure_ok = std_val >= 12 or edge_density >= 0.08
+            if structure_ok and 0.04 < dark_ratio < 0.92:
                 if not is_visible:
                     visible_count += 1.0
                 is_visible = True
                 visibility_score = max(visibility_score, min(dark_ratio / 0.35, 1.0))
-            elif dark_ratio > 0.015:
+            elif structure_ok and 0.015 < dark_ratio < 0.92:
                 if not is_visible:
                     visible_count += 0.5
                 is_visible = True
@@ -597,7 +603,7 @@ class CoalDetector:
             coal_mask = (roi_hsv[:, :, 1] < 30) & (roi_hsv[:, :, 2] < 60)
             coal_pixels = np.count_nonzero(coal_mask)
             coal_coverage_ratio = coal_pixels / total_pixels
-            has_coal = coal_coverage_ratio > 0.1  # 10% 阈值
+            has_coal = is_visible and coal_coverage_ratio > 0.1  # 10% 阈值
 
             grid_info = GridInfo(
                 id=i + 1,

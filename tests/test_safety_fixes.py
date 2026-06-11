@@ -1,6 +1,7 @@
 import time
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from algo.device_detector import DeviceDetector
@@ -79,6 +80,27 @@ def test_device_detector_low_grid_visibility_is_fail_safe(monkeypatch):
     assert result.device_has_coal is False
     assert result.device_confidence == "LOW"
     assert result.device_alert_level == "WARNING"
+
+
+def test_device_detector_dark_textured_frame_is_not_valid_full_coal():
+    config = Config()
+    detector = DeviceDetector(config, device_id="test-device", grid_count=125)
+
+    rng = np.random.default_rng(123)
+    gray = np.clip(
+        rng.normal(22, 10, (config.frame_height, config.frame_width)),
+        0,
+        55,
+    ).astype(np.uint8)
+    dark_textured_frame = np.dstack([gray, gray, gray])
+
+    result = detector.detect_device(dark_textured_frame, frame_id=1)
+
+    assert result.quality_ok is False
+    assert result.fault_code == 3
+    assert result.device_confidence == "LOW"
+    assert result.device_has_coal is False
+    assert not (result.visible_grids == result.total_grids and result.coal_grids == result.total_grids)
 
 
 def test_update_thresholds_invalid_vote_combination_does_not_mutate_state():
