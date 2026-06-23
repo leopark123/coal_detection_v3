@@ -1,0 +1,308 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="36.00" TargetType="Rung" TargetCount="13" ContainsContext="true" Owner="China, Microsoft" ExportDate="Wed Jun 10 18:08:25 2026" ExportOptions="References NoRawData L5KData DecoratedData Context RoutineLabels AliasExtras IOTags NoStringData ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="A16">
+<DataTypes Use="Context">
+</DataTypes>
+<Tags Use="Context">
+<Tag Name="Allow_Tip" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[允许翻车（最终输出）]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Capture_Delay_Timer" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[延时计时器]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[[0,3000,0]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="3000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="Fault_Light" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[故障指示]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="HB_Last" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[上次心跳值]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[28642]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="28642"/>
+</Data>
+</Tag>
+<Tag Name="HB_Timer" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[-1073192588,2000,240]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="2000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="240"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="IPC_Heartbeat" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[工控机每5 00ms 加 1
+       PLC 只检查它是否在变化
+    如果长时间不变化，判定通讯异常]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[28642]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="28642"/>
+</Data>
+</Tag>
+<Tag Name="IPC_Online" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[- 工控机程序启动成功后置 1
+  - 程序关闭或异常时置 0
+  - 如果 PLC 读不到，也按 0 处理]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Manual_Confirm_Light" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[需人工确认]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="PLC_CaptureCmd" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[PLC 写]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Sim_Enable" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[模拟开关（方便随时停）]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Sim_Timer" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[模拟周期计时器]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[[-1073192588,60000,31431]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="60000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="31431"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="Tipper_InPosition" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[翻车机回位信号]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_Alive" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[视觉系统健康]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Vision_CanTip" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[- 由工控机主程序直接给最终结果
+  - 1 表示允许翻车
+  - 0 表示不允许翻车]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_CaptureState" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[服务器写，PLC 读]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_Enable" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[视觉采集使能]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Vision_FaultCode" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[0 正常
+  - 1 相机故障
+  - 2 图像无效
+  - 3 算法异常
+  - 4 通讯异常]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_ResultValid" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[- 相机正常、当前帧处理成功、结果可信时置 1
+  - 相机断开、图像异常、算法异常时置 0]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+</Tags>
+<Programs Use="Context">
+<Program Use="Context" Name="MainProgram">
+<Routines Use="Context">
+<Routine Use="Context" Name="MainRoutine">
+<RLLContent Use="Context">
+<Rung Use="Target" Number="0" Type="N">
+<Text>
+<![CDATA[NE(IPC_Heartbeat,HB_Last)MOVE(IPC_Heartbeat,HB_Last)RES(HB_Timer);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="1" Type="N">
+<Text>
+<![CDATA[TON(HB_Timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="2" Type="N">
+<Text>
+<![CDATA[XIC(IPC_Online)XIO(HB_Timer.DN)OTE(Vision_Alive);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="3" Type="N">
+<Text>
+<![CDATA[XIO(Vision_Alive)OTE(Fault_Light);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="4" Type="N">
+<Text>
+<![CDATA[[XIC(Vision_Enable) XIC(Vision_Alive) XIC(Vision_CanTip) XIC(Vision_ResultValid) EQ(Vision_FaultCode,0) ,XIO(Vision_Enable) ]OTE(Allow_Tip);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="5" Type="N">
+<Text>
+<![CDATA[EQ(Vision_FaultCode,4)OTE(Manual_Confirm_Light);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="6" Type="N">
+<Text>
+<![CDATA[XIC(Tipper_InPosition)XIC(Vision_Enable)EQ(Vision_CaptureState,0)TON(Capture_Delay_Timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="7" Type="N">
+<Text>
+<![CDATA[XIC(Capture_Delay_Timer.DN)EQ(PLC_CaptureCmd,0)MOVE(1,PLC_CaptureCmd);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="8" Type="N">
+<Text>
+<![CDATA[EQ(Vision_CaptureState,2)MOVE(0,PLC_CaptureCmd)RES(Capture_Delay_Timer);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="9" Type="N">
+<Text>
+<![CDATA[XIO(Tipper_InPosition)MOVE(0,PLC_CaptureCmd)RES(Capture_Delay_Timer);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="10" Type="N">
+<Text>
+<![CDATA[XIC(Sim_Enable)TON(Sim_Timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="11" Type="N">
+<Text>
+<![CDATA[XIC(Sim_Enable)LIMIT(0,Sim_Timer.ACC,20000)OTE(Tipper_InPosition);]]>
+</Text>
+</Rung>
+<Rung Use="Target" Number="12" Type="N">
+<Text>
+<![CDATA[XIC(Sim_Timer.DN)RES(Sim_Timer);]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+</Controller>
+</RSLogix5000Content>

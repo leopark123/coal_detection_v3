@@ -1,0 +1,1140 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="36.00" TargetName="A16" TargetType="Controller" ContainsContext="false" Owner="China, Microsoft" ExportDate="Wed Jun 10 15:34:15 2026" ExportOptions="NoRawData L5KData DecoratedData ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Target" Name="A16" ProcessorType="1769-L16ER-BB1B" MajorRev="36" MinorRev="11" TimeSlice="20" ShareUnusedTimeSlice="1" ProjectCreationDate="Sun Mar 22 09:25:58 2026" LastModifiedDate="Mon Mar 30 09:51:00 2026" SFCExecutionControl="CurrentActive" SFCRestartPosition="MostRecent"
+ SFCLastScan="DontScan" ProjectSN="16#d04a_af38" MatchProjectToController="false" CanUseRPIFromProducer="false" InhibitAutomaticFirmwareUpdate="0" PassThroughConfiguration="EnabledWithAppend" DownloadProjectDocumentationAndExtendedProperties="true" DownloadProjectCustomProperties="true" ReportMinorOverflow="false">
+<RedundancyInfo Enabled="false" KeepTestEditsOnSwitchOver="false" IOMemoryPadPercentage="90" DataTablePadPercentage="50"/>
+<Security Code="0" ChangesToDetect="16#ffff_ffff_ffff_ffff"/>
+<SafetyInfo/>
+<DataTypes/>
+<Modules>
+<Module Name="Local" CatalogNumber="1769-L16ER-BB1B" Vendor="1" ProductType="14" ProductCode="153" Major="36" Minor="11" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="true"
+>
+<EKey State="ExactMatch"/>
+<Ports>
+<Port Id="1" Address="0" Type="PointIO" Upstream="false">
+<Bus Size="2"/>
+</Port>
+<Port Id="2" Type="Ethernet" Upstream="false">
+<Bus/>
+</Port>
+</Ports>
+</Module>
+<Module Name="Discrete_IO" CatalogNumber="Embedded" Vendor="1" ProductType="7" ProductCode="1140" Major="36" Minor="11" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="true"
+>
+<EKey State="CompatibleModule"/>
+<Ports>
+<Port Id="1" Address="1" Type="PointIO" Upstream="true"/>
+</Ports>
+<Communications>
+<ConfigTag ConfigSize="80" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[84,113,1,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000
+		,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,0,0,0,0,0,0]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="AB:Embedded_DiscreteIO:C:0">
+<DataValueMember Name="Pt00FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt00FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt01FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt01FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt02FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt02FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt03FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt03FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt04FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt04FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt05FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt05FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt06FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt06FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt07FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt07FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt08FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt08FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt09FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt09FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt10FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt10FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt11FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt11FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt12FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt12FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt13FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt13FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt14FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt14FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt15FilterOffOn" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="Pt15FilterOnOff" DataType="INT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="FaultMode" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+<DataValueMember Name="FaultValue" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+<DataValueMember Name="ProgMode" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+<DataValueMember Name="ProgValue" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+<DataValueMember Name="COSOnOffEn" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+<DataValueMember Name="COSOffOnEn" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+</Structure>
+</Data>
+</ConfigTag>
+<Connections>
+<Connection Name="Data" RPI="20000" Type="Output" EventID="0" ProgrammaticallySendEventTrigger="false" Unicast="false">
+<InputTag ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Structure DataType="AB:Embedded_DiscreteIO:I:0">
+<DataValueMember Name="Fault" DataType="DINT" Radix="Binary" Value="2#0000_0000_0000_0000_0000_0000_0000_0000"/>
+<DataValueMember Name="Data" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+</Structure>
+</Data>
+</InputTag>
+<OutputTag ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[0]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="AB:Embedded_DiscreteIO:O:0">
+<DataValueMember Name="Data" DataType="INT" Radix="Binary" Value="2#0000_0000_0000_0000"/>
+</Structure>
+</Data>
+</OutputTag>
+</Connection>
+</Connections>
+</Communications>
+<ExtendedProperties>
+<public><ConfigID>100</ConfigID><CatNum>Embedded</CatNum></public>
+</ExtendedProperties>
+</Module>
+<Module Name="AENTR" CatalogNumber="1794-AENTR" Vendor="1" ProductType="12" ProductCode="261" Major="1" Minor="1" ParentModule="Local" ParentModPortId="2" Inhibited="false" MajorFault="false"
+>
+<EKey State="CompatibleModule"/>
+<Ports>
+<Port Id="1" Type="Flex" Upstream="false">
+<Bus Size="8"/>
+</Port>
+<Port Id="2" Address="192.168.1.2" Type="Ethernet" Upstream="true"/>
+</Ports>
+<Communications CommMethod="805306369">
+<Connections>
+<Connection Name="Output" RPI="20000" Type="Output" EventID="0" ProgrammaticallySendEventTrigger="false" Unicast="true">
+<InputTag ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Structure DataType="AB:1794_AEN_8SLOT:I:0">
+<DataValueMember Name="SlotStatusBits" DataType="DINT" Radix="Binary" Value="2#0000_0000_0000_0000_0000_0000_1111_1111"/>
+<ArrayMember Name="Data" DataType="INT" Dimensions="8" Radix="Binary">
+<Element Index="[0]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[1]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[2]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[3]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[4]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[5]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[6]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[7]" Value="2#0000_0000_0000_0000"/>
+</ArrayMember>
+</Structure>
+</Data>
+</InputTag>
+<OutputTag ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[[0,0,0,0,0,0,0,0]]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="AB:1794_AEN_8SLOT:O:0">
+<ArrayMember Name="Data" DataType="INT" Dimensions="8" Radix="Binary">
+<Element Index="[0]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[1]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[2]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[3]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[4]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[5]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[6]" Value="2#0000_0000_0000_0000"/>
+<Element Index="[7]" Value="2#0000_0000_0000_0000"/>
+</ArrayMember>
+</Structure>
+</Data>
+</OutputTag>
+</Connection>
+</Connections>
+</Communications>
+<ExtendedProperties>
+<public><ConfigID>4456551</ConfigID><CatNum>1794-AENTR</CatNum></public>
+</ExtendedProperties>
+</Module>
+<Module Name="IE8" CatalogNumber="1794-IE8/B" Vendor="1" ProductType="10" ProductCode="25" Major="2" Minor="1" ParentModule="AENTR" ParentModPortId="1" Inhibited="false" MajorFault="false"
+>
+<EKey State="CompatibleModule"/>
+<Ports>
+<Port Id="1" Address="0" Type="Flex" Upstream="true"/>
+</Ports>
+<Communications CommMethod="536870913">
+<ConfigTag ConfigSize="34" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[38,3,1,2,0,125,12,4,128,125,10,16,125,11,7,6436,0,8,1,0,1,-256]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="AB:1794_IE8:C:0">
+<DataValueMember Name="Config" DataType="INT" Radix="Binary" Value="2#1111_1111_0000_0000"/>
+<DataValueMember Name="Ch0FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7FullRange" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch1ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch2ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch3ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch4ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch5ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch6ConfigSelect" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch7ConfigSelect" DataType="BOOL" Value="1"/>
+</Structure>
+</Data>
+</ConfigTag>
+<Connections>
+<Connection Name="Input" RPI="80000" Type="Input" EventID="0" ProgrammaticallySendEventTrigger="false" Unicast="true">
+<InputTag ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Structure DataType="AB:1794_IE8:I:1">
+<DataValueMember Name="Fault" DataType="DINT" Radix="Binary" Value="2#0000_0000_0000_0000_0000_0000_1111_1111"/>
+<DataValueMember Name="Ch0Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch1Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch2Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch3Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch4Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch5Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch6Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch7Data" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Status" DataType="INT" Radix="Binary" Value="2#0000_0000_1111_1111"/>
+<DataValueMember Name="Ch0Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch1Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch2Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch3Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch4Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch5Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch6Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch7Underrange" DataType="BOOL" Value="1"/>
+<DataValueMember Name="PowerUp" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</InputTag>
+</Connection>
+</Connections>
+</Communications>
+<ExtendedProperties>
+<public><ConfigID>105</ConfigID><CatNum>1794-IE8</CatNum></public>
+</ExtendedProperties>
+</Module>
+<Module Name="IOLINK" CatalogNumber="1732E-8IOLM12R/B" Vendor="1" ProductType="155" ProductCode="2" Major="3" Minor="1" ParentModule="Local" ParentModPortId="2" Inhibited="false" MajorFault="false"
+ SafetyEnabled="false">
+<EKey State="CompatibleModule"/>
+<Ports>
+<Port Id="1" Address="192.168.1.100" Type="Ethernet" Upstream="true"/>
+</Ports>
+<Communications>
+<ConfigTag ConfigSize="110" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[114,110,1,3,3,3,3,3,3,3,3,310,98,2,0,1,0,0,0,0,0,310,98,2,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,4,0,0,0,0,0,0,0,0,0,0,103,103
+		,103,103,103,103,103,103,103,103,103,103,103,103,103,103,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="AB:1732_8IOL1:C:0">
+<DataValueMember Name="Ch0FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch0ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch1FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch1ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch2FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch2ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch3FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch3ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch4FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch4ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch5FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch5ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch6FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch6ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch7FaultMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch7ProgMode" DataType="SINT" Radix="Decimal" Value="103"/>
+<DataValueMember Name="Ch0FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch0FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch1FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch1FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch2FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch2FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch3FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch3FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch4FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch4FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch5FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch5FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch6FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch6FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch7FilterOffOn" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Ch7FilterOnOff" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="MasterSyncEnabled" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</ConfigTag>
+<ConfigScript Size="172">
+<Data Format="L5K">
+<![CDATA[[-88,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,-106,0,0,0,11,44,1,0,0,1,0,0,0,2,0,0,0,120,0,0,0,16,4,32,4,37,0,110,0,48,3,75,0,101,0,121,0,84,0,111,0,107
+		,0,101,0,110,0,61,0,50,0,54,0,57,0,53,0,51,0,53,0,54,0,102,0,56,0,56,0,49,0,98,0,51,0,57,0,101,0,98,0,-6,43,-32,117,-6,43,-118,-38
+		,-93,80,116,12,0,-128,68,120,-6,43,28,121,-6,43,-8,121,-6,43,-40,122,-6,43,1,0,0,-64,32,0,0,0,-102,2,0,0,112,36,-95,86,16
+		,42,-95,86,0,0,15,0,0,0,0,0,-1,-1,1,112,3,0,0,0,0,0,0,80,0,0,0,0,0]]]>
+</Data>
+</ConfigScript>
+<Connections>
+<Connection Name="OutputData" RPI="20000" Type="StandardDataDriven" OutputSize="0" InputSize="60" EventID="0" ProgrammaticallySendEventTrigger="false" Priority="Scheduled" InputConnectionType="Unicast" InputProductionTrigger="Cyclic" ConnectionPath="20 04 24 6e 2c 6f 2c 70"
+ InputTagSuffix="I">
+<InputTag ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Structure DataType="AB:1732_8IOL29D95087:I:0">
+<DataValueMember Name="Fault" DataType="DINT" Radix="Binary" Value="2#1111_1111_1111_1111_1111_1111_1111_1111"/>
+<StructureMember Name="Status" DataType="AB:1732_8IOL_Struct_Status:I:0">
+<DataValueMember Name="Ch0Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch0ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch0ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch0NoIoSize" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch1ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch1ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch1NoIoSize" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch2Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch2ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch2ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch2NoIoSize" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch3ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch3ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch3NoIoSize" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch4Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch4ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch4ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch4NoIoSize" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch5Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch5ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch5ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch5NoIoSize" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch6Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch6ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch6ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch6NoIoSize" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch7Fault" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch7ConnectionFaulted" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Ch7ConfigurationInProgress" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7ConfigurationFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7KeyingFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7ShortCircuit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7DataInvalid" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7PowerFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7ClampAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Ch7NoIoSize" DataType="BOOL" Value="1"/>
+</StructureMember>
+<StructureMember Name="Ch0DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="3"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="-14"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="16"/>
+</StructureMember>
+<StructureMember Name="Ch1DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<StructureMember Name="Ch2DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="3"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="-14"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="16"/>
+</StructureMember>
+<StructureMember Name="Ch3DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<StructureMember Name="Ch4DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<StructureMember Name="Ch5DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<StructureMember Name="Ch6DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<StructureMember Name="Ch7DiagEvent" DataType="AB:1732_8IOL_Struct_Event:I:0">
+<DataValueMember Name="SequenceCount" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Qualifier" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Source_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Source_2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Location" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Type_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_0" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Mode_1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Code" DataType="INT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<ArrayMember Name="Ch0Data" DataType="SINT" Dimensions="4" Radix="Binary">
+<Element Index="[0]" Value="2#0000_0000"/>
+<Element Index="[1]" Value="2#0000_0000"/>
+<Element Index="[2]" Value="2#0000_0000"/>
+<Element Index="[3]" Value="2#0000_0000"/>
+</ArrayMember>
+<ArrayMember Name="Ch2Data" DataType="SINT" Dimensions="4" Radix="Binary">
+<Element Index="[0]" Value="2#0000_0000"/>
+<Element Index="[1]" Value="2#0000_0000"/>
+<Element Index="[2]" Value="2#0000_0000"/>
+<Element Index="[3]" Value="2#0000_0000"/>
+</ArrayMember>
+</Structure>
+</Data>
+</InputTag>
+</Connection>
+</Connections>
+</Communications>
+<ExtendedProperties>
+<public><Vendor>Rockwell Automation/Allen-Bradley</Vendor><CatNum>1732E-8IOLM12R</CatNum><AOPVER>2</AOPVER><CH0ChannelMode>1</CH0ChannelMode><CH1ChannelMode>1</CH1ChannelMode><CH2ChannelMode>1</CH2ChannelMode><CH3ChannelMode>1</CH3ChannelMode><CH4ChannelMode>1</CH4ChannelMode><CH5ChannelMode>1</CH5ChannelMode><CH6ChannelMode>1</CH6ChannelMode><CH7ChannelMode>1</CH7ChannelMode><ConfigID>100</ConfigID><CH2EKeying>2</CH2EKeying><CH2DeviceID>610</CH2DeviceID><CH2VendorID>310</CH2VendorID><CH2GenericDevice>False</CH2GenericDevice><CH2DeviceName>DP2200</CH2DeviceName><CH2SVI>0</CH2SVI><CH2DeviceActivePDIndex>0</CH2DeviceActivePDIndex><CH2ADC>False</CH2ADC><CH2DS>0</CH2DS><CH2EnABled>False</CH2EnABled><CH2VendorName>ifm electronic gmbh</CH2VendorName><CH2ConfigParamArray>0</CH2ConfigParamArray><CH2BlockedParamsArray>0</CH2BlockedParamsArray><CH2PDInBitLength>32</CH2PDInBitLength><CH2PDOutBitLength>0</CH2PDOutBitLength><CH2PDInRecData>0</CH2PDInRecData><CH2PDOutRecData>0</CH2PDOutRecData><inputTagXMLStore>&lt;Members&gt;&lt;Member Name="Ch0Data" DataType="SINT" Dimension="4" Radix="Binary" /&gt;&lt;Member Name="Ch2Data" DataType="SINT" Dimension="4" Radix="Binary" /&gt;&lt;/Members&gt;</inputTagXMLStore><outputTagXMLStore>&lt;Members&gt;&lt;/Members&gt;</outputTagXMLStore><Channel_0_Mode>3</Channel_0_Mode><Channel_1_Mode>3</Channel_1_Mode><Channel_2_Mode>3</Channel_2_Mode><Channel_3_Mode>3</Channel_3_Mode><Channel_4_Mode>3</Channel_4_Mode><Channel_5_Mode>3</Channel_5_Mode><Channel_6_Mode>3</Channel_6_Mode><Channel_7_Mode>3</Channel_7_Mode><CH0EKeying>2</CH0EKeying><CH0DeviceID>610</CH0DeviceID><CH0VendorID>310</CH0VendorID><CH0GenericDevice>False</CH0GenericDevice><CH0DeviceName>DP2200</CH0DeviceName><CH0SVI>0</CH0SVI><CH0DeviceActivePDIndex>0</CH0DeviceActivePDIndex><CH0ADC>False</CH0ADC><CH0DS>0</CH0DS><CH0EnABled>False</CH0EnABled><CH0VendorName>ifm electronic gmbh</CH0VendorName><CH0ConfigParamArray>0</CH0ConfigParamArray><CH0BlockedParamsArray>0</CH0BlockedParamsArray><CH0PDInBitLength>32</CH0PDInBitLength><CH0PDOutBitLength>0</CH0PDOutBitLength><CH0PDInRecData>0</CH0PDInRecData><CH0PDOutRecData>0</CH0PDOutRecData><TargetPath>RSLinx Enterprise!AB_ETHIP-1!!13 0d 31 39 32 2e 31 36 38 2e 31 2e 31 30 30 00</TargetPath></public>
+</ExtendedProperties>
+</Module>
+</Modules>
+<AddOnInstructionDefinitions>
+<AddOnInstructionDefinition Name="LOW_LEVEL" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="2024-03-14T23:54:03.890Z" CreatedBy="LAPTOP-KIC0BE7H\xianw" EditedDate="2024-03-15T00:14:35.452Z" EditedBy="LAPTOP-KIC0BE7H\xianw" SoftwareRevision="v36.00">
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Enable Input - System Defined Parameter]]>
+</Description>
+</Parameter>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Enable Output - System Defined Parameter]]>
+</Description>
+</Parameter>
+<Parameter Name="H_LOW_OUTPUT" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read Only">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="H_LOW_INPUT" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+</Parameters>
+<LocalTags>
+<LocalTag Name="FLASH_02S" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,200,195]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="200"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="195"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_RAW" DataType="DINT" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_ARRAY" DataType="DINT" Dimensions="10" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,0,0,0,0,0,0,0,0,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Array DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</Array>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_LAST" DataType="DINT" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_CONTROL1" DataType="CONTROL" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,10,9]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="CONTROL">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="10"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="9"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="EU" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="EM" DataType="BOOL" Value="0"/>
+<DataValueMember Name="ER" DataType="BOOL" Value="0"/>
+<DataValueMember Name="UL" DataType="BOOL" Value="0"/>
+<DataValueMember Name="IN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="FD" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_STD1" DataType="REAL" Radix="Float" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_CONTROL2" DataType="CONTROL" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,9,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="CONTROL">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="9"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="EU" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="EM" DataType="BOOL" Value="0"/>
+<DataValueMember Name="ER" DataType="BOOL" Value="0"/>
+<DataValueMember Name="UL" DataType="BOOL" Value="0"/>
+<DataValueMember Name="IN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="FD" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_DIFF" DataType="DINT" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_TIMER5" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,3000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="3000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_LOAD" DataType="BOOL" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_VALUE" DataType="DINT" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_TIMER3" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,20000,20002]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="20000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="20002"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_TIMER4" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,6000,20005]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="6000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="20005"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_TIMER1" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,3000,3001]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="3000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="3001"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="FEED_STP" DataType="BOOL" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="LOW_TIMER2" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,8000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="8000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="H_SEN_LOW" DataType="BOOL" Radix="Decimal" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[XIC(FLASH_02S.DN)[FFL(LOW_RAW,LOW_ARRAY[0],LOW_CONTROL1,?,?) ,FFU(LOW_ARRAY[0],LOW_LAST,LOW_CONTROL1,?,?) ,STD(LOW_ARRAY[0],0,LOW_STD1,LOW_CONTROL2,?,?) ];]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[XIO(FLASH_02S.DN)TON(FLASH_02S,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[CPT(LOW_DIFF,(LOW_ARRAY[8]+LOW_ARRAY[7]+LOW_ARRAY[6]+LOW_ARRAY[5])-(LOW_ARRAY[3]+LOW_ARRAY[2]+LOW_ARRAY[1]+LOW_ARRAY[0]));]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[CMP(LOW_DIFF>60)[[TON(LOW_TIMER5,?,?) ,XIC(LOW_TIMER5.DN) OTL(LOW_LOAD) ] ,XIC(LOW_LOAD) CPT(LOW_VALUE,(LOW_ARRAY[3]+LOW_ARRAY[2]+LOW_ARRAY[1]+LOW_ARRAY[0])/4) ];]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[XIC(LOW_LOAD)TON(LOW_TIMER3,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[CMP(LOW_RAW-LOW_VALUE<10)TON(LOW_TIMER4,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[[CMP(LOW_DIFF<-20) ,XIC(LOW_TIMER4.DN) ]XIC(LOW_TIMER3.DN)OTU(LOW_LOAD);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Text>
+<![CDATA[CMP(LOW_DIFF<10)CMP(LOW_STD1<2)[TON(LOW_TIMER1,?,?) ,XIC(LOW_TIMER1.DN) OTE(FEED_STP) ];]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[XIO(LOW_LOAD)CMP(ABS(LOW_DIFF)<20)CMP(LOW_STD1<8)[TON(LOW_TIMER2,?,?) ,XIC(LOW_TIMER2.DN) OTE(H_SEN_LOW) ];]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[[OTE(H_LOW_OUTPUT) ,MOVE(H_LOW_INPUT,LOW_RAW) ];]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+</AddOnInstructionDefinitions>
+<Tags>
+<Tag Name="Allow_Tip" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[允许翻车（最终输出）]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Capture_Delay_Timer" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[延时计时器]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[[0,3000,0]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="3000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="Fault_Light" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[故障指示]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="HB_Last" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[上次心跳值]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[10531]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="10531"/>
+</Data>
+</Tag>
+<Tag Name="HB_Timer" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[-1069859192,2000,320]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="2000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="320"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="IPC_Heartbeat" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[工控机每5 00ms 加 1
+       PLC 只检查它是否在变化
+    如果长时间不变化，判定通讯异常]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[10531]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="10531"/>
+</Data>
+</Tag>
+<Tag Name="IPC_Online" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[- 工控机程序启动成功后置 1
+  - 程序关闭或异常时置 0
+  - 如果 PLC 读不到，也按 0 处理]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Manual_Confirm_Light" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[需人工确认]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="PLC_CaptureCmd" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[PLC 写]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Sim_Enable" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[模拟开关（方便随时停）]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Sim_Timer" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[模拟周期计时器]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[[-1069859188,60000,21919]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="60000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="21919"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="Tipper_InPosition" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[翻车机回位信号]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_Alive" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[视觉系统健康]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Vision_CanTip" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[- 由工控机主程序直接给最终结果
+  - 1 表示允许翻车
+  - 0 表示不允许翻车]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_CaptureState" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[服务器写，PLC 读]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+<Tag Name="Vision_Enable" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[视觉采集使能]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[1]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="Vision_FaultCode" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[0 正常
+  - 1 相机故障
+  - 2 图像无效
+  - 3 算法异常
+  - 4 通讯异常]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[3]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="3"/>
+</Data>
+</Tag>
+<Tag Name="Vision_ResultValid" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[- 相机正常、当前帧处理成功、结果可信时置 1
+  - 相机断开、图像异常、算法异常时置 0]]>
+</Description>
+<Data Format="L5K">
+<![CDATA[0]]>
+</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
+</Tags>
+<Programs>
+<Program Name="MainProgram" TestEdits="false" MainRoutineName="MainRoutine" Disabled="false" UseAsFolder="false">
+<Tags>
+<Tag Name="SCL_01" TagType="Base" DataType="SCALE" Constant="false" ExternalAccess="Read/Write">
+<Data Format="L5K">
+<![CDATA[[1,0.00000000e+000,3.08400000e+004,0.00000000e+000,2.00000000e+001,4.00000000e+000,1,4.00000000e+000
+		,0,0.00000000e+000,3.08400000e+004,3.24254215e-005,4.00000000e+000]]]>
+</Data>
+<Data Format="Decorated">
+<Structure DataType="SCALE">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="In" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="InRawMax" DataType="REAL" Radix="Float" Value="30840.0"/>
+<DataValueMember Name="InRawMin" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="InEUMax" DataType="REAL" Radix="Float" Value="20.0"/>
+<DataValueMember Name="InEUMin" DataType="REAL" Radix="Float" Value="4.0"/>
+<DataValueMember Name="Limiting" DataType="BOOL" Value="0"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Out" DataType="REAL" Radix="Float" Value="4.0"/>
+<DataValueMember Name="MaxAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="MinAlarm" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Status" DataType="DINT" Radix="Hex" Value="16#0000_0000"/>
+<DataValueMember Name="InstructFault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="InRawRangeInv" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+</Tags>
+<Routines>
+<Routine Name="MainRoutine" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text>
+<![CDATA[NE(IPC_Heartbeat,HB_Last)MOVE(IPC_Heartbeat,HB_Last)RES(HB_Timer);]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text>
+<![CDATA[TON(HB_Timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[XIC(IPC_Online)XIO(HB_Timer.DN)OTE(Vision_Alive);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text>
+<![CDATA[XIO(Vision_Alive)OTE(Fault_Light);]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text>
+<![CDATA[[XIC(Vision_Enable) XIC(Vision_Alive) XIC(Vision_CanTip) XIC(Vision_ResultValid) EQ(Vision_FaultCode,0) ,XIO(Vision_Enable) ]OTE(Allow_Tip);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[EQ(Vision_FaultCode,4)OTE(Manual_Confirm_Light);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[XIC(Tipper_InPosition)XIC(Vision_Enable)EQ(Vision_CaptureState,0)TON(Capture_Delay_Timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Text>
+<![CDATA[XIC(Capture_Delay_Timer.DN)EQ(PLC_CaptureCmd,0)MOVE(1,PLC_CaptureCmd);]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[EQ(Vision_CaptureState,2)MOVE(0,PLC_CaptureCmd)RES(Capture_Delay_Timer);]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[XIO(Tipper_InPosition)MOVE(0,PLC_CaptureCmd)RES(Capture_Delay_Timer);]]>
+</Text>
+</Rung>
+<Rung Number="10" Type="N">
+<Text>
+<![CDATA[XIC(Sim_Enable)TON(Sim_Timer,?,?);]]>
+</Text>
+</Rung>
+<Rung Number="11" Type="N">
+<Text>
+<![CDATA[XIC(Sim_Enable)LIMIT(0,Sim_Timer.ACC,20000)OTE(Tipper_InPosition);]]>
+</Text>
+</Rung>
+<Rung Number="12" Type="N">
+<Text>
+<![CDATA[XIC(Sim_Timer.DN)RES(Sim_Timer);]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+<Tasks>
+<Task Name="MainTask" Type="CONTINUOUS" Priority="10" Watchdog="500" DisableUpdateOutputs="false" InhibitTask="false">
+<ScheduledPrograms>
+<ScheduledProgram Name="MainProgram"/>
+</ScheduledPrograms>
+</Task>
+</Tasks>
+<CST MasterID="0"/>
+<WallClockTime LocalTimeAdjustment="0" TimeZone="0"/>
+<Trends/>
+<DataLogs/>
+<TimeSynchronize Priority1="128" Priority2="128" PTPEnable="false"/>
+<EthernetPorts>
+<EthernetPort Port="1" Label="1" PortEnabled="true"/>
+<EthernetPort Port="2" Label="2" PortEnabled="true"/>
+</EthernetPorts>
+<EthernetNetwork SupervisorModeEnabled="false" SupervisorPrecedence="0" BeaconInterval="400" BeaconTimeout="1960" VLANID="0"/>
+</Controller>
+</RSLogix5000Content>

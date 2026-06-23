@@ -1,0 +1,351 @@
+﻿(*********************************************
+
+  Import-Export
+  Version   := RSLogix 5000 v36.00
+  Owner     := China, Microsoft
+  Exported  := Wed Jun 10 15:16:22 2026
+
+  Note:  File encoded in UTF-8.  Only edit file in a program 
+         which supports UTF-8 (like Notepad, not Wordpad).
+
+**********************************************)
+IE_VER := 2.27;
+
+CONTROLLER A16 (ProcessorType := "1769-L16ER-BB1B",
+                Major := 36,
+                TimeSlice := 20,
+                ShareUnusedTimeSlice := 1,
+                RedundancyEnabled := 0,
+                KeepTestEditsOnSwitchOver := 0,
+                DataTablePadPercentage := 50,
+                SecurityCode := 0,
+                ChangesToDetect := 16#ffff_ffff_ffff_ffff,
+                SFCExecutionControl := "CurrentActive",
+                SFCRestartPosition := "MostRecent",
+                SFCLastScan := "DontScan",
+                SerialNumber := 16#d04a_af38,
+                MatchProjectToController := No,
+                CanUseRPIFromProducer := No,
+                InhibitAutomaticFirmwareUpdate := 0,
+                PassThroughConfiguration := EnabledWithAppend,
+                DownloadProjectDocumentationAndExtendedProperties := Yes,
+                ReportMinorOverflow := 0)
+	MODULE Local (Parent := "Local",
+	              ParentModPortId := 1,
+	              CatalogNumber := "1769-L16ER-BB1B",
+	              Vendor := 1,
+	              ProductType := 14,
+	              ProductCode := 153,
+	              Major := 36,
+	              Minor := 11,
+	              ChassisSize := 2,
+	              Slot := 0,
+	              Mode := 2#0000_0000_0000_0001,
+	              CompatibleModule := 0,
+	              KeyMask := 2#0000_0000_0001_1111)
+	END_MODULE
+
+	MODULE Discrete_IO (Parent := "Local",
+	                    ParentModPortId := 1,
+	                    CatalogNumber := "Embedded",
+	                    Vendor := 1,
+	                    ProductType := 7,
+	                    ProductCode := 1140,
+	                    Major := 36,
+	                    Minor := 11,
+	                    PortLabel := "RxBACKPLANE",
+	                    Slot := 1,
+	                    Mode := 2#0000_0000_0000_0001,
+	                    CompatibleModule := 1,
+	                    KeyMask := 2#0000_0000_0001_1111)
+			ExtendedProp := [[[___<public><ConfigID>100</ConfigID><CatNum>Embedded</CatNum></public>___]]]
+			ConfigData  := [84,113,1,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000
+		,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,0,0,0,0,0,0];
+			CONNECTION Data (Rate := 20000,
+			                 EventID := 0,
+			                 Unicast := No)
+					InputData  := [0,0];
+					OutputData  := [0];
+			END_CONNECTION
+
+	END_MODULE
+
+	MODULE AENTR (Parent := "Local",
+	              ParentModPortId := 2,
+	              CatalogNumber := "1794-AENTR",
+	              Vendor := 1,
+	              ProductType := 12,
+	              ProductCode := 261,
+	              Major := 1,
+	              Minor := 1,
+	              PortLabel := "ENet",
+	              ChassisSize := 8,
+	              NodeAddress := "192.168.1.2",
+	              CommMethod := 805306369,
+	              Mode := 2#0000_0000_0000_0000,
+	              CompatibleModule := 1,
+	              KeyMask := 2#0000_0000_0001_1111)
+			ExtendedProp := [[[___<public><ConfigID>4456551</ConfigID><CatNum>1794-AENTR</CatNum></public>___]]]
+			CONNECTION Output (Rate := 20000,
+			                   EventID := 0,
+			                   Unicast := Yes)
+					InputData  := [255,[0,0,0,0,0,0,0,0]];
+					OutputData  := [[0,0,0,0,0,0,0,0]];
+			END_CONNECTION
+
+	END_MODULE
+
+	MODULE IE8 (Parent := "AENTR",
+	            ParentModPortId := 1,
+	            CatalogNumber := "1794-IE8/B",
+	            Vendor := 1,
+	            ProductType := 10,
+	            ProductCode := 25,
+	            Major := 2,
+	            Minor := 1,
+	            PortLabel := "RxBACKPLANE",
+	            Slot := 0,
+	            CommMethod := 536870913,
+	            ConfigMethod := 8388609,
+	            Mode := 2#0000_0000_0000_0000,
+	            CompatibleModule := 1,
+	            KeyMask := 2#0000_0000_0001_1111)
+			ExtendedProp := [[[___<public><ConfigID>105</ConfigID><CatNum>1794-IE8</CatNum></public>___]]]
+			ConfigData  := [38,3,1,2,0,125,12,4,128,125,10,16,125,11,7,6436,0,8,1,0,1,-256];
+			CONNECTION Input (Rate := 80000,
+			                  EventID := 0,
+			                  Unicast := Yes)
+					InputData  := [255,0,0,0,0,0,0,0,0,255];
+			END_CONNECTION
+
+	END_MODULE
+
+	MODULE IOLINK (Parent := "Local",
+	               ParentModPortId := 2,
+	               CatalogNumber := "1732E-8IOLM12R/B",
+	               Vendor := 1,
+	               ProductType := 155,
+	               ProductCode := 2,
+	               Major := 3,
+	               Minor := 1,
+	               PortLabel := "ENet",
+	               NodeAddress := "192.168.1.100",
+	               Mode := 2#0000_0000_0000_0000,
+	               CompatibleModule := 1,
+	               KeyMask := 2#0000_0000_0001_1111,
+	               SafetyEnabled := 0)
+			ExtendedProp := [[[___<public><Vendor>Rockwell Automation/Allen-Bradley</Vendor><CatNum>1732E-8IOLM12R</CatNum><AOPVER>2</AOPVER><CH0ChannelMode>1</CH0ChannelMode><CH1ChannelMode>1</CH1ChannelMode><CH2ChannelMode>1</CH2ChannelMode><CH3ChannelMode>1</CH3ChannelMode><CH4ChannelMode>1</CH4ChannelMode><CH5ChannelMode>1</CH5ChannelMode><CH6ChannelMode>1</CH6ChannelMode><CH7ChannelMode>1</CH7ChannelMode><ConfigID>100</ConfigID><CH2EKeying>2</CH2EKeying><CH2DeviceID>610</CH2DeviceID><CH2VendorID>310</CH2VendorID><CH2GenericDevice>False</CH2GenericDevice><CH2DeviceName>DP2200</CH2DeviceName><CH2SVI>0</CH2SVI><CH2DeviceActivePDIndex>0</CH2DeviceActivePDIndex><CH2ADC>False</CH2ADC><CH2DS>0</CH2DS><CH2EnABled>False</CH2EnABled><CH2VendorName>ifm electronic gmbh</CH2VendorName><CH2ConfigParamArray>0</CH2ConfigParamArray><CH2BlockedParamsArray>0</CH2BlockedParamsArray><CH2PDInBitLength>32</CH2PDInBitLength><CH2PDOutBitLength>0</CH2PDOutBitLength><CH2PDInRecData>0</CH2PDInRecData><CH2PDOutRecData>0</CH2PDOutRecData><inputTagXMLStore>&lt;Members&gt;&lt;Member Name=$QCh0Data$Q DataType=$QSINT$Q Dimension=$Q4$Q Radix=$QBinary$Q /&gt;&lt;Member Name=$QCh2Data$Q DataType=$QSINT$Q Dimension=$Q4$Q Radix=$QBinary$Q /&gt;&lt;/Members&gt;</inputTagXMLStore><outputTagXMLStore>&lt;Members&gt;&lt;/Members&gt;</outputTagXMLStore><Channel_0_Mode>3</Channel_0_Mode><Channel_1_Mode>3</Channel_1_Mode><Channel_2_Mode>3</Channel_2_Mode><Channel_3_Mode>3</Channel_3_Mode><Channel_4_Mode>3</Channel_4_Mode><Channel_5_Mode>3</Channel_5_Mode><Channel_6_Mode>3</Channel_6_Mode><Channel_7_Mode>3</Channel_7_Mode><CH0EKeying>2</CH0EKeying><CH0DeviceID>610</CH0DeviceID><CH0VendorID>310</CH0VendorID><CH0GenericDevice>False</CH0GenericDevice><CH0DeviceName>DP2200</CH0DeviceName><CH0SVI>0</CH0SVI><CH0DeviceActivePDIndex>0</CH0DeviceActivePDIndex><CH0ADC>False</CH0ADC><CH0DS>0</CH0DS><CH0EnABled>False</CH0EnABled><CH0VendorName>ifm electronic gmbh</CH0VendorName><CH0ConfigParamArray>0</CH0ConfigParamArray><CH0BlockedParamsArray>0</CH0BlockedParamsArray><CH0PDInBitLength>32</CH0PDInBitLength><CH0PDOutBitLength>0</CH0PDOutBitLength><CH0PDInRecData>0</CH0PDInRecData><CH0PDOutRecData>0</CH0PDOutRecData><TargetPath>RSLinx Enterprise!AB_ETHIP-1!!13 0d 31 39 32 2e 31 36 38 2e 31 2e 31 30 30 00</TargetPath></public>___]]]
+			ConfigData  := [114,110,1,3,3,3,3,3,3,3,3,310,98,2,0,1,0,0,0,0,0,310,98,2,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,4,0,0,0,0,0,0,0,0,0,0,103,103
+		,103,103,103,103,103,103,103,103,103,103,103,103,103,103,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+			ConfigScript (Size := 172) := [-88,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,-106,0,0,0,11,44,1,0,0,1,0,0,0,2,0,0,0,120,0,0,0,16,4,32,4,37,0,110,0,48,3,75,0,101,0,121,0,84,0,111,0,107
+		,0,101,0,110,0,61,0,50,0,54,0,57,0,53,0,51,0,53,0,54,0,102,0,56,0,56,0,49,0,98,0,51,0,57,0,101,0,98,0,-6,43,-32,117,-6,43,-118,-38
+		,-93,80,116,12,0,-128,68,120,-6,43,28,121,-6,43,-8,121,-6,43,-40,122,-6,43,1,0,0,-64,32,0,0,0,-102,2,0,0,112,36,-95,86,16
+		,42,-95,86,0,0,15,0,0,0,0,0,-1,-1,1,112,3,0,0,0,0,0,0,80,0,0,0,0,0];
+			CONNECTION OutputData (Rate := 20000,
+			                       InputSize := 60,
+			                       OutputSize := 0,
+			                       EventID := 0,
+			                       Priority := Scheduled,
+			                       InputConnectionType := Unicast,
+			                       InputProductionTrigger := Cyclic,
+			                       ConnectionPath := "20 04 24 6e 2c 6f 2c 70",
+			                       InputTagSuffix := "I")
+					InputData  := [-1,[3,515,3,515,515,515,515,515],[3,-14,16],[0,0,0],[3,-14,16],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0,0],[0,0,0,0]];
+			END_CONNECTION
+
+	END_MODULE
+
+	ADD_ON_INSTRUCTION_DEFINITION LOW_LEVEL (Revision := "1.0",
+	                                         ExecutePrescan := No,
+	                                         ExecutePostscan := No,
+	                                         ExecuteEnableInFalse := No,
+	                                         CreatedDate := "2024-03-14T23:54:03.890Z",
+	                                         CreatedBy := "LAPTOP-KIC0BE7H\xianw",
+	                                         EditedDate := "2024-03-15T00:14:35.452Z",
+	                                         EditedBy := "LAPTOP-KIC0BE7H\xianw",
+	                                         SoftwareRevision := "v36.00")
+		PARAMETERS
+			EnableIn : BOOL (Description := "Enable Input - System Defined Parameter",
+			                    Usage := Input,
+			                    RADIX := Decimal,
+			                    Required := No,
+			                    Visible := No,
+			                    ExternalAccess := Read Only);
+			EnableOut : BOOL (Description := "Enable Output - System Defined Parameter",
+			                     Usage := Output,
+			                     RADIX := Decimal,
+			                     Required := No,
+			                     Visible := No,
+			                     ExternalAccess := Read Only);
+			H_LOW_OUTPUT : BOOL (Usage := Output,
+			                        RADIX := Decimal,
+			                        Required := Yes,
+			                        Visible := Yes,
+			                        ExternalAccess := Read Only,
+			                        DefaultData := 0);
+			H_LOW_INPUT : DINT (Usage := Input,
+			                       RADIX := Decimal,
+			                       Required := Yes,
+			                       Visible := Yes,
+			                       DefaultData := 0);
+		END_PARAMETERS
+
+		LOCAL_TAGS
+			FLASH_02S : TIMER (ExternalAccess := None,
+			                    DefaultData := "[0,200,195]");
+			LOW_RAW : DINT (RADIX := Decimal,
+			                  ExternalAccess := None,
+			                  DefaultData := 0);
+			LOW_ARRAY : DINT[10] (RADIX := Decimal,
+			                    ExternalAccess := None,
+			                    DefaultData := "[0,0,0,0,0,0,0,0,0,0]");
+			LOW_LAST : DINT (RADIX := Decimal,
+			                   ExternalAccess := None,
+			                   DefaultData := 0);
+			LOW_CONTROL1 : CONTROL (ExternalAccess := None,
+			                       DefaultData := "[0,10,9]");
+			LOW_STD1 : REAL (RADIX := Float,
+			                   ExternalAccess := None,
+			                   DefaultData := 0.00000000e+000);
+			LOW_CONTROL2 : CONTROL (ExternalAccess := None,
+			                       DefaultData := "[0,9,0]");
+			LOW_DIFF : DINT (RADIX := Decimal,
+			                   ExternalAccess := None,
+			                   DefaultData := 0);
+			LOW_TIMER5 : TIMER (ExternalAccess := None,
+			                     DefaultData := "[0,3000,0]");
+			LOW_LOAD : BOOL (RADIX := Decimal,
+			                   ExternalAccess := None,
+			                   DefaultData := 0);
+			LOW_VALUE : DINT (RADIX := Decimal,
+			                    ExternalAccess := None,
+			                    DefaultData := 0);
+			LOW_TIMER3 : TIMER (ExternalAccess := None,
+			                     DefaultData := "[0,20000,20002]");
+			LOW_TIMER4 : TIMER (ExternalAccess := None,
+			                     DefaultData := "[0,6000,20005]");
+			LOW_TIMER1 : TIMER (ExternalAccess := None,
+			                     DefaultData := "[0,3000,3001]");
+			FEED_STP : BOOL (RADIX := Decimal,
+			                   ExternalAccess := None,
+			                   DefaultData := 0);
+			LOW_TIMER2 : TIMER (ExternalAccess := None,
+			                     DefaultData := "[0,8000,0]");
+			H_SEN_LOW : BOOL (RADIX := Decimal,
+			                    ExternalAccess := None,
+			                    DefaultData := 0);
+		END_LOCAL_TAGS
+
+		ROUTINE Logic 
+				N: XIC(FLASH_02S.DN)[FFL(LOW_RAW,LOW_ARRAY[0],LOW_CONTROL1,?,?) ,FFU(LOW_ARRAY[0],LOW_LAST,LOW_CONTROL1,?,?) ,STD(LOW_ARRAY[0],0,LOW_STD1,LOW_CONTROL2,?,?) ];
+				N: XIO(FLASH_02S.DN)TON(FLASH_02S,?,?);
+				N: CPT(LOW_DIFF,(LOW_ARRAY[8]+LOW_ARRAY[7]+LOW_ARRAY[6]+LOW_ARRAY[5])-(LOW_ARRAY[3]+LOW_ARRAY[2]+LOW_ARRAY[1]+LOW_ARRAY[0]));
+				N: CMP(LOW_DIFF>60)[[TON(LOW_TIMER5,?,?) ,XIC(LOW_TIMER5.DN) OTL(LOW_LOAD) ] ,XIC(LOW_LOAD) CPT(LOW_VALUE,(LOW_ARRAY[3]+LOW_ARRAY[2]+LOW_ARRAY[1]+LOW_ARRAY[0])/4) ];
+				N: XIC(LOW_LOAD)TON(LOW_TIMER3,?,?);
+				N: CMP(LOW_RAW-LOW_VALUE<10)TON(LOW_TIMER4,?,?);
+				N: [CMP(LOW_DIFF<-20) ,XIC(LOW_TIMER4.DN) ]XIC(LOW_TIMER3.DN)OTU(LOW_LOAD);
+				N: CMP(LOW_DIFF<10)CMP(LOW_STD1<2)[TON(LOW_TIMER1,?,?) ,XIC(LOW_TIMER1.DN) OTE(FEED_STP) ];
+				N: XIO(LOW_LOAD)CMP(ABS(LOW_DIFF)<20)CMP(LOW_STD1<8)[TON(LOW_TIMER2,?,?) ,XIC(LOW_TIMER2.DN) OTE(H_SEN_LOW) ];
+				N: [OTE(H_LOW_OUTPUT) ,MOVE(H_LOW_INPUT,LOW_RAW) ];
+		END_ROUTINE
+
+	END_ADD_ON_INSTRUCTION_DEFINITION
+
+	TAG
+		Allow_Tip : BOOL (Description := "允许翻车（最终输出）",
+		            RADIX := Decimal) := 0;
+		Capture_Delay_Timer : TIMER (Description := "延时计时器") := [0,3000,0];
+		Fault_Light : BOOL (Description := "故障指示",
+		            RADIX := Decimal) := 0;
+		HB_Last : DINT (Description := "上次心跳值",
+		            RADIX := Decimal) := 8428;
+		HB_Timer : TIMER  := [-1070932349,2000,456];
+		IPC_Heartbeat : DINT (Description := "工控机每5 00ms 加 1$N       PLC 只检查它是否在变化$N    如果长时间不变化，判定通讯异常",
+		            RADIX := Decimal) := 8428;
+		IPC_Online : BOOL (Description := "- 工控机程序启动成功后置 1$N  - 程序关闭或异常时置 0$N  - 如果 PLC 读不到，也按 0 处理",
+		            RADIX := Decimal) := 1;
+		Manual_Confirm_Light : BOOL (Description := "需人工确认",
+		            RADIX := Decimal) := 0;
+		PLC_CaptureCmd : DINT (Description := "PLC 写",
+		            RADIX := Decimal) := 0;
+		Sim_Enable : BOOL (Description := "模拟开关（方便随时停）",
+		            RADIX := Decimal) := 1;
+		Sim_Timer : TIMER (Description := "模拟周期计时器") := [-1070932349,60000,28758];
+		Tipper_InPosition : BOOL (Description := "翻车机回位信号",
+		            RADIX := Decimal) := 0;
+		Vision_Alive : BOOL (Description := "视觉系统健康",
+		            RADIX := Decimal) := 1;
+		Vision_CanTip : BOOL (Description := "- 由工控机主程序直接给最终结果$N  - 1 表示允许翻车$N  - 0 表示不允许翻车",
+		            RADIX := Decimal) := 0;
+		Vision_CaptureState : DINT (Description := "服务器写，PLC 读",
+		            RADIX := Decimal) := 0;
+		Vision_Enable : BOOL (Description := "视觉采集使能",
+		            RADIX := Decimal) := 1;
+		Vision_FaultCode : DINT (Description := "0 正常$N  - 1 相机故障$N  - 2 图像无效$N  - 3 算法异常$N  - 4 通讯异常",
+		            RADIX := Decimal) := 3;
+		Vision_ResultValid : BOOL (Description := "- 相机正常、当前帧处理成功、结果可信时置 1$N  - 相机断开、图像异常、算法异常时置 0",
+		            RADIX := Decimal) := 0;
+	END_TAG
+
+	PROGRAM MainProgram (MAIN := "MainRoutine",
+	                     MODE := 0,
+	                     DisableFlag := 0,
+	                     UseAsFolder := 0)
+		TAG
+			SCL_01 : SCALE  := [1,0.00000000e+000,3.08400000e+004,0.00000000e+000,2.00000000e+001,4.00000000e+000,1,4.00000000e+000
+					,0,0.00000000e+000,3.08400000e+004,3.24254215e-005,4.00000000e+000];
+		END_TAG
+
+		ROUTINE MainRoutine 
+				N: NE(IPC_Heartbeat,HB_Last)MOVE(IPC_Heartbeat,HB_Last)RES(HB_Timer);
+				N: TON(HB_Timer,?,?);
+				N: XIC(IPC_Online)XIO(HB_Timer.DN)OTE(Vision_Alive);
+				N: XIO(Vision_Alive)OTE(Fault_Light);
+				N: [XIC(Vision_Enable) XIC(Vision_Alive) XIC(Vision_CanTip) XIC(Vision_ResultValid) EQ(Vision_FaultCode,0) ,XIO(Vision_Enable) ]OTE(Allow_Tip);
+				N: EQ(Vision_FaultCode,4)OTE(Manual_Confirm_Light);
+				N: XIC(Tipper_InPosition)XIC(Vision_Enable)EQ(Vision_CaptureState,0)TON(Capture_Delay_Timer,?,?);
+				N: XIC(Capture_Delay_Timer.DN)EQ(PLC_CaptureCmd,0)MOVE(1,PLC_CaptureCmd);
+				N: EQ(Vision_CaptureState,2)MOVE(0,PLC_CaptureCmd)RES(Capture_Delay_Timer);
+				N: XIO(Tipper_InPosition)MOVE(0,PLC_CaptureCmd)RES(Capture_Delay_Timer);
+				N: XIC(Sim_Enable)TON(Sim_Timer,?,?);
+				N: XIC(Sim_Enable)LIMIT(0,Sim_Timer.ACC,20000)OTE(Tipper_InPosition);
+				N: XIC(Sim_Timer.DN)RES(Sim_Timer);
+		END_ROUTINE
+
+		CHILD_PROGRAMS
+		END_CHILD_PROGRAMS
+
+	END_PROGRAM
+
+	TASK MainTask (Type := CONTINUOUS,
+	               Rate := 10,
+	               Priority := 10,
+	               Watchdog := 500,
+	               DisableUpdateOutputs := No,
+	               InhibitTask := No)
+			MainProgram;
+	END_TASK
+
+CONFIG CST(SystemTimeMasterID := 0) END_CONFIG
+
+CONFIG EthernetNetwork(SupervisorModeEnabled := 0,
+	                                 SupervisorPrecedence := 0,
+	                                 BeaconInterval := 400,
+	                                 BeaconTimeout := 1960,
+	                                 VLANID := 0) END_CONFIG
+
+CONFIG EthernetPort1(Label := "1",
+	                             PortEnabled := 1) END_CONFIG
+
+CONFIG EthernetPort2(Label := "2",
+	                             PortEnabled := 1) END_CONFIG
+
+CONFIG TimeSynchronize(Priority1 := 128,
+	                                 Priority2 := 128,
+	                                 PTPEnable := 0) END_CONFIG
+
+CONFIG WallClockTime(LocalTimeAdjustment := 0,
+	                     TimeZone := 0) END_CONFIG
+
+END_CONTROLLER
+
